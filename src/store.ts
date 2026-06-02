@@ -1,0 +1,49 @@
+import { create } from 'zustand'
+
+export interface CountryInfo {
+  id: string
+  name: string
+  capital: string
+  ruler: string
+  governmentType: string
+  religion: string
+  culture: string
+  description: string
+  dates: string
+  color: string
+  groupId?: string
+}
+
+interface MapState {
+  isLoading: boolean
+  setLoading: (loading: boolean) => void
+
+  currentYear: number
+  setYear: (year: number) => void
+
+  layer: 'detailed' | 'unified'
+  setLayer: (layer: 'detailed' | 'unified') => void
+
+  hoveredCountry: string | null
+  setHoveredCountry: (id: string | null) => void
+
+  selectedCountry: CountryInfo | null
+  setSelectedCountry: (country: CountryInfo | null) => void
+}
+
+export const useMapStore = create<MapState>((set) => ({
+  isLoading: true,
+  setLoading: (loading) => set({ isLoading: loading }),
+
+  currentYear: 1200,
+  setYear: (year) => set({ currentYear: year }),
+
+  layer: 'detailed',
+  setLayer: (layer) => set({ layer }),
+
+  hoveredCountry: null,
+  setHoveredCountry: (id) => set({ hoveredCountry: id }),
+
+  selectedCountry: null,
+  setSelectedCountry: (country) => set({ selectedCountry: country }),
+}))
