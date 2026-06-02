@@ -8,13 +8,17 @@ interface MapSceneProps {
 }
 
 const labelCountries = [
-  'england', 'france', 'holy_roman_empire', 'poland', 'hungary', 'castile', 'aragon', 'portugal',
-  'denmark', 'sweden', 'norway', 'byzantine_empire', 'bulgaria', 'kievan_rus',
-  'rum', 'georgia', 'lithuania', 'teutonic_order',
+  'england', 'france', 'holy_roman_empire', 'poland', 'hungary', 'castile', 'aragon', 'portugal', 'spain',
+  'denmark', 'sweden', 'norway', 'denmark_norway', 'kalmar_union', 'byzantine_empire', 'bulgaria', 'kievan_rus',
+  'rum', 'georgia', 'lithuania', 'teutonic_order', 'poland_lithuania',
   'cyprus', 'latin_empire', 'achaea', 'epirus',
   'cumania', 'croatia', 'bosnia', 'bohemia', 'papal_states', 'venice', 'genoa', 'milan', 'florence',
-  'sicily', 'naples', 'sardinia', 'corsica',
+  'sicily', 'naples', 'sardinia', 'corsica', 'savoy',
   'golden_horde', 'novgorod', 'ilkhanate', 'mamluke_sultanate', 'granada',
+  'ottoman_empire', 'grand_duchy_of_moscow', 'tsardom_of_muscovy', 'crimean_khanate', 'khanate_of_sibir',
+  'safavid_empire', 'hafsid_caliphate', 'mughal_empire',
+  'swiss_confederation', 'republic_of_the_seven_zenden', 'habsburg_netherlands',
+  'moldova', 'serbia', 'wallachia', 'morocco',
 ]
 
 export default function MapScene({ countries }: MapSceneProps) {

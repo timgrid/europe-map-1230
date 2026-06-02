@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+public/world_1300.geojson
+public/world_1400.geojson
+public/world_1492.geojson
+public/world_1500.geojson
+public/world_1530.geojson

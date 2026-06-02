@@ -1,6 +1,6 @@
 import { useMapStore } from '../../store'
 
-const years = [1200, 1279]
+const years = [1200, 1279, 1300, 1400, 1492, 1500, 1530]
 
 export default function YearToggle() {
   const currentYear = useMapStore((state) => state.currentYear)
