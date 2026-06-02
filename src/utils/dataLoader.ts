@@ -20,8 +20,9 @@ const cache = new Map<number, ProcessedData>()
 export async function loadYearData(year: number): Promise<ProcessedData> {
   if (cache.has(year)) return cache.get(year)!
   
-  const resp = await fetch(`/data/processed/europe_${year}.json`)
-  if (!resp.ok) throw new Error(`Failed to load data for year ${year}`)
+  const baseUrl = import.meta.env.BASE_URL || '/'
+  const resp = await fetch(`${baseUrl}data/processed/europe_${year}.json`)
+  if (!resp.ok) throw new Error(`Failed to load data for year ${year} (${resp.status})`)
   
   const data: ProcessedData = await resp.json()
   cache.set(year, data)
