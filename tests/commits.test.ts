@@ -1,21 +1,31 @@
 import { describe, it, expect } from 'vitest'
-import { execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const REPO_ROOT = fileURLToPath(new URL('..', import.meta.url))
 
-function sh(cmd: string): string {
+function sh(cmd: string, args: string[] = []): string {
   try {
-    return execSync(cmd, { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    const result = execFileSync(cmd, args, { cwd: REPO_ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    return (result ?? '').trim()
   } catch (err: any) {
-    return (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '')
+    return ((err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '')).trim()
   }
 }
 
 const isGitRepo = existsSync(join(REPO_ROOT, '.git'))
-const CUTOFF_SHA = '9f7ca3d' // first conventional commit; older ones predate the policy
+
+function resolveCutoffSha(): string | null {
+  const sha = sh('git', ['rev-parse', '--verify', '9f7ca3d'])
+  return sha.length > 0 ? sha : null
+}
+
+function findCommitlintBin(): string {
+  const localBin = join(REPO_ROOT, 'node_modules', '.bin', 'commitlint')
+  return localBin
+}
 
 describe('Conventional Commits', () => {
   it.skipIf(!isGitRepo)('commitlint config is present', () => {
@@ -28,9 +38,16 @@ describe('Conventional Commits', () => {
   })
 
   it.skipIf(!isGitRepo)('all commits after cutoff follow Conventional Commits', () => {
-    const out = sh(
-      `npx --no -- commitlint --from=${CUTOFF_SHA} --to=HEAD`,
-    )
+    const cutoff = resolveCutoffSha()
+    if (!cutoff) {
+      throw new Error(
+        'Cutoff commit 9f7ca3d is not reachable. ' +
+          'Ensure CI checkout uses fetch-depth: 0 to preserve full history.',
+      )
+    }
+    const bin = findCommitlintBin()
+    expect(existsSync(bin), `commitlint binary not found at ${bin}`).toBe(true)
+    const out = sh(bin, ['--from', cutoff, '--to', 'HEAD'])
     expect(out, out).toBe('')
   })
 })
