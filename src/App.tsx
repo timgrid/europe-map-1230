@@ -19,20 +19,28 @@ function App() {
   const currentYear = useMapStore((state) => state.currentYear)
   const isLoading = useMapStore((state) => state.isLoading)
   const setLoading = useMapStore((state) => state.setLoading)
+  const reloadKey = useMapStore((state) => state.reloadKey)
   const setSelectedCountry = useMapStore((state) => state.setSelectedCountry)
 
   // Load data when year changes
   useEffect(() => {
     let cancelled = false
-    loadYearData(currentYear).then((data: ProcessedData) => {
-      if (cancelled) return
-      setCountries(parseEuropeGeoJSON(data))
-      const center = getMapCenter(data)
-      setMapCenter({ x: center.x, y: center.y })
-      setLoading(false)
-    })
+    setLoading(true)
+    loadYearData(currentYear)
+      .then((data: ProcessedData) => {
+        if (cancelled) return
+        setCountries(parseEuropeGeoJSON(data))
+        const center = getMapCenter(data)
+        setMapCenter({ x: center.x, y: center.y })
+      })
+      .catch((err) => {
+        console.error(`Failed to load year ${currentYear}:`, err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
     return () => { cancelled = true }
-  }, [currentYear, setLoading])
+  }, [currentYear, reloadKey, setLoading])
 
   const handlePointerMissed = useCallback(() => {
     setSelectedCountry(null)

@@ -405,15 +405,15 @@ function processGeoJSON() {
     scale, offsetX, offsetY,
     countries: countries.map(c => ({
       ...c,
-      center: [(c.center[0] + offsetX) * scale, (c.center[1] + offsetY) * scale],
+      center: [+(c.center[0] + offsetX) * scale, +(c.center[1] + offsetY) * scale].map(v => +v.toFixed(2)),
       polygons: c.polygons.map(p => ({
-        outer: p.outer.map(pt => [(pt[0] + offsetX) * scale, (pt[1] + offsetY) * scale]),
-        holes: p.holes.map(h => h.map(pt => [(pt[0] + offsetX) * scale, (pt[1] + offsetY) * scale])),
+        outer: p.outer.map(pt => [+((pt[0] + offsetX) * scale).toFixed(2), +((pt[1] + offsetY) * scale).toFixed(2)]),
+        holes: p.holes.map(h => h.map(pt => [+((pt[0] + offsetX) * scale).toFixed(2), +((pt[1] + offsetY) * scale).toFixed(2)])),
       })),
     })),
   };
 
-  fs.writeFileSync(outputFile, JSON.stringify(output, null, 2));
+  fs.writeFileSync(outputFile, JSON.stringify(output));
   console.log(`[${year}] Processed ${countries.length} countries`);
   console.log(`[${year}] Bounds: X ${minX.toFixed(4)}..${maxX.toFixed(4)}, Y ${minY.toFixed(4)}..${maxY.toFixed(4)}`);
   console.log(`[${year}] Scale: ${scale.toFixed(2)}`);

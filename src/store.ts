@@ -20,6 +20,8 @@ interface MapState {
 
   currentYear: number
   setYear: (year: number) => void
+  reloadKey: number
+  reload: () => void
 
   layer: 'detailed' | 'unified'
   setLayer: (layer: 'detailed' | 'unified') => void
@@ -37,6 +39,8 @@ export const useMapStore = create<MapState>((set) => ({
 
   currentYear: 1200,
   setYear: (year) => set({ currentYear: year }),
+  reloadKey: 0,
+  reload: () => set((s) => ({ reloadKey: s.reloadKey + 1, isLoading: true })),
 
   layer: 'detailed',
   setLayer: (layer) => set({ layer }),
