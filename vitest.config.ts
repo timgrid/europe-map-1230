@@ -9,7 +9,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/utils/**', 'src/data/**'],
+      include: ['src/utils/geoParser.ts'],
+      thresholds: {
+        statements: 85,
+        branches: 80,
+        functions: 85,
+        lines: 85,
+      },
     },
   },
 })

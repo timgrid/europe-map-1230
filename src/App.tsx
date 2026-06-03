@@ -1,3 +1,4 @@
+// Purpose: корневой компонент приложения | App root — canvas R3F, UI-оверлей, загрузка данных
 import { useCallback, useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'

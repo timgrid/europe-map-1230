@@ -1,3 +1,4 @@
+// Purpose: тултип с названием страны при наведении (следит за курсором)
 import { useState, useEffect } from 'react'
 import { useMapStore } from '../../store'
 import { countriesData } from '../../data/countriesData'

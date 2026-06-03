@@ -1,3 +1,4 @@
+// Purpose: селектор года | список годов 1200-1530
 import { useMapStore } from '../../store'
 
 const years = [1200, 1279, 1300, 1400, 1492, 1500, 1530]

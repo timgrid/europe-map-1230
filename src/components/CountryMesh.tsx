@@ -1,3 +1,4 @@
+// Purpose: экструдированный полигон страны + обводка | ховер/выбор
 import { useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { useMapStore, type CountryInfo } from '../store'

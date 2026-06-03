@@ -1,3 +1,4 @@
+// Purpose: боковая панель с описанием выбранной страны
 import { motion, AnimatePresence } from 'framer-motion'
 import { useMapStore } from '../../store'
 

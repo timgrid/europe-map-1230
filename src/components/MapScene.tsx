@@ -1,3 +1,4 @@
+// Purpose: 3D-сцена — водная плоскость, страны (CountryMesh), текстовые подписи (Html)
 import { Html } from '@react-three/drei'
 import type { CountryGeometry } from '../utils/geoParser'
 import CountryMesh from './CountryMesh'

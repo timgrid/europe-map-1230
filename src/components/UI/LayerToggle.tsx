@@ -1,3 +1,4 @@
+// Purpose: переключатель слоя (Unified / Principalities)
 import { useMapStore } from '../../store'
 
 export default function LayerToggle() {

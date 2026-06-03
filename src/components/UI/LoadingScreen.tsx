@@ -1,3 +1,4 @@
+// Purpose: экран загрузки / спиннер + кнопка «Повторить» через 15s
 import { useEffect, useState } from 'react'
 import { useMapStore } from '../../store'
 

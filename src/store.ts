@@ -1,3 +1,4 @@
+// Purpose: Zustand store — глобальное состояние (currentYear, layer, selectedCountry, isLoading, reloadKey)
 import { create } from 'zustand'
 
 export interface CountryInfo {

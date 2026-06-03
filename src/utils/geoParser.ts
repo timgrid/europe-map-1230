@@ -1,3 +1,4 @@
+// Purpose: парсинг ProcessedData → CountryGeometry (THREE.Shape[]), вычисление центра, создание Extrude/Edge геометрии
 import * as THREE from 'three'
 import type { ProcessedData } from './dataLoader'
 

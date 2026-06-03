@@ -1,3 +1,4 @@
+// Purpose: русские названия и описания стран для SidePanel | ключ — slug страны
 import { type CountryInfo } from '../store'
 
 // Metadata for countries based on GeoJSON IDs from historical-basemaps

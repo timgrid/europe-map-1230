@@ -12,7 +12,11 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:commits": "commitlint --from=$(git rev-list --max-parents=0 HEAD) --to=HEAD --verbose",
-    "prepare": "husky"
+    "prepare": "husky",
+    "release": "standard-version",
+    "release:minor": "standard-version --release-as minor",
+    "release:major": "standard-version --release-as major",
+    "postrelease": "git push --follow-tags origin master"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",
@@ -22,6 +26,13 @@
     "react-dom": "^19.2.6",
     "three": "^0.184.0",
     "zustand": "^5.0.14"
+  },
+  "standard-version": {
+    "releaseCommitMessageFormat": "chore(release): {{currentTag}}",
+    "t": "",
+    "scripts": {
+      "posttag": "node -e \"console.log('Created tag ' + process.env.npm_package_version)\""
+    }
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.1",
@@ -44,10 +55,12 @@
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "postcss": "^8.5.15",
+    "standard-version": "^9.5.0",
     "tailwindcss": "^4.3.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12",
-    "vitest": "^3.2.6"
+    "vitest": "^3.2.6",
+    "zod": "^3.25.76"
   }
 }

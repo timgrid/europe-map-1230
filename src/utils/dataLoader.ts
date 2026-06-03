@@ -1,21 +1,9 @@
-export interface ProcessedCountry {
-  id: string
-  name: string
-  color: string
-  center: [number, number]
-  polygons: { outer: number[][]; holes: number[][][] }[]
-}
-
-export interface ProcessedData {
-  year: number
-  bounds: { minX: number; maxX: number; minY: number; maxY: number }
-  scale: number
-  offsetX: number
-  offsetY: number
-  countries: ProcessedCountry[]
-}
+// Purpose: загрузка processed JSON + валидация через Zod | кеш по году
+import { validateProcessedData, type ProcessedData } from '../data/schema'
 
 const cache = new Map<number, ProcessedData>()
+
+export type { ProcessedData, ProcessedCountry } from '../data/schema'
 
 export async function loadYearData(year: number): Promise<ProcessedData> {
   if (cache.has(year)) return cache.get(year)!
@@ -24,7 +12,8 @@ export async function loadYearData(year: number): Promise<ProcessedData> {
   const resp = await fetch(`${baseUrl}data/processed/europe_${year}.json`)
   if (!resp.ok) throw new Error(`Failed to load data for year ${year} (${resp.status})`)
   
-  const data: ProcessedData = await resp.json()
+  const raw: unknown = await resp.json()
+  const data = validateProcessedData(raw)
   cache.set(year, data)
   return data
 }
