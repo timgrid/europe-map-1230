@@ -1,5 +1,5 @@
-// Purpose: экструдированный полигон страны + обводка | ховер/выбор
-import { useMemo, useState } from 'react'
+// Purpose: экструдированный полигон страны + обводка | ховер/выбор | dispose геометрий при смене года
+import { useMemo, useState, useEffect } from 'react'
 import * as THREE from 'three'
 import { useMapStore, type CountryInfo } from '../store'
 import { type CountryGeometry, createExtrudedGeometry, createEdgeGeometry } from '../utils/geoParser'
@@ -10,7 +10,6 @@ interface CountryMeshProps {
   layer: 'detailed' | 'unified'
 }
 
-// Type for R3F pointer events
 interface R3FEvent {
   stopPropagation: () => void
   [key: string]: any
@@ -25,7 +24,6 @@ export default function CountryMesh({ country, layer: _layer }: CountryMeshProps
 
   const isSelected = selectedCountry?.id === country.id
 
-  // Pre-generate geometries for all shapes of this country
   const geometries = useMemo(() => {
     return country.shapes.map(shape => ({
       mesh: createExtrudedGeometry(shape),
@@ -33,15 +31,36 @@ export default function CountryMesh({ country, layer: _layer }: CountryMeshProps
     }))
   }, [country.shapes])
 
+  useEffect(() => {
+    return () => {
+      for (const g of geometries) {
+        g.mesh.dispose()
+        g.edge.dispose()
+      }
+    }
+  }, [geometries])
+
+  // Memoize border geometry and material per shape
+  const borders = useMemo(() => {
+    return geometries.map(g => {
+      const mat = new THREE.LineBasicMaterial({ color: '#2c1810' })
+      return new THREE.Line(g.edge, mat)
+    })
+  }, [geometries])
+
+  useEffect(() => {
+    return () => {
+      for (const line of borders) {
+        line.material.dispose()
+      }
+    }
+  }, [borders])
+
   let baseColor = country.color
   let emissiveIntensity = 0
   
-  if (hovered) {
-    emissiveIntensity = 0.3
-  }
-  if (isSelected) {
-    emissiveIntensity = 0.5
-  }
+  if (hovered) emissiveIntensity = 0.3
+  if (isSelected) emissiveIntensity = 0.5
 
   const handlePointerOver = (e: R3FEvent) => {
     e.stopPropagation()
@@ -85,9 +104,7 @@ export default function CountryMesh({ country, layer: _layer }: CountryMeshProps
               metalness={0.1}
             />
           </mesh>
-          
-          {/* Country borders */}
-          <primitive object={new THREE.Line(geom.edge, new THREE.LineBasicMaterial({ color: '#2c1810', linewidth: 1.5 }))} />
+          <primitive object={borders[idx]!} />
         </group>
       ))}
     </group>

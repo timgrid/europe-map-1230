@@ -1,5 +1,5 @@
 // Purpose: корневой компонент приложения | App root — canvas R3F, UI-оверлей, загрузка данных
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import MapScene from './components/MapScene'
@@ -29,6 +29,9 @@ function App() {
   const setSelectedCountry = useMapStore((state) => state.setSelectedCountry)
   const isMobile = useIsMobile()
 
+  // A4: discard pointermissed after drag
+  const pointerDown = useRef<{ x: number; y: number } | null>(null)
+
   // Load data when year changes
   useEffect(() => {
     let cancelled = false
@@ -49,7 +52,13 @@ function App() {
     return () => { cancelled = true }
   }, [currentYear, reloadKey, setLoading])
 
-  const handlePointerMissed = useCallback(() => {
+  const handlePointerMissed = useCallback((event: MouseEvent) => {
+    if (pointerDown.current) {
+      const dx = event.clientX - pointerDown.current.x
+      const dy = event.clientY - pointerDown.current.y
+      if (Math.hypot(dx, dy) > 5) return
+      pointerDown.current = null
+    }
     setSelectedCountry(null)
   }, [setSelectedCountry])
 
@@ -57,12 +66,14 @@ function App() {
   const cameraPosition: [number, number, number] = [mapCenter.x, 180, -mapCenter.y + 25]
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-900">
+    <div className="relative w-screen h-screen overflow-hidden bg-slate-900"
+      onPointerDown={(e) => { pointerDown.current = { x: e.clientX, y: e.clientY } }}
+    >
       {isLoading && <LoadingScreen />}
 
       <Canvas
         camera={{ position: cameraPosition, fov: 18, near: 0.1, far: 800 }}
-        shadows
+        shadows={!isMobile}
         gl={{ antialias: true, alpha: false }}
         style={{ background: '#0a1628' }}
         onPointerMissed={handlePointerMissed}
@@ -75,14 +86,18 @@ function App() {
           position={[mapCenter.x - 40, 100, -mapCenter.y + 40]}
           intensity={1.2}
           color="#ffecd1"
-          castShadow
-          shadow-mapSize-width={2048}
-          shadow-mapSize-height={2048}
-          shadow-camera-far={400}
-          shadow-camera-left={-150}
-          shadow-camera-right={150}
-          shadow-camera-top={150}
-          shadow-camera-bottom={-150}
+          {...(isMobile
+            ? { castShadow: false }
+            : {
+                castShadow: true,
+                'shadow-mapSize-width': 2048,
+                'shadow-mapSize-height': 2048,
+                'shadow-camera-far': 400,
+                'shadow-camera-left': -150,
+                'shadow-camera-right': 150,
+                'shadow-camera-top': 150,
+                'shadow-camera-bottom': -150,
+              })}
         />
         <hemisphereLight args={['#87CEEB', '#8B4513', 0.3]} />
 
