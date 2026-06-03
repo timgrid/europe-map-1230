@@ -9,7 +9,7 @@ export default function LayerToggle() {
     <div className="flex gap-2 pointer-events-auto">
       <button
         onClick={() => setLayer('detailed')}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+        className={`touch-target px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
           layer === 'detailed'
             ? 'bg-amber-200 text-slate-900 border-amber-200'
             : 'bg-slate-800/80 text-slate-300 border-slate-600 hover:border-amber-200/50'
@@ -19,7 +19,7 @@ export default function LayerToggle() {
       </button>
       <button
         onClick={() => setLayer('unified')}
-        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+        className={`touch-target px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
           layer === 'unified'
             ? 'bg-amber-200 text-slate-900 border-amber-200'
             : 'bg-slate-800/80 text-slate-300 border-slate-600 hover:border-amber-200/50'
