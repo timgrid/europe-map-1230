@@ -2,7 +2,7 @@
 import { useIsMobile } from '../../hooks/useDeviceType'
 import { useMapStore } from '../../store'
 
-const years = [1200, 1279, 1300, 1400, 1492, 1500, 1530]
+const years = [800, 900, 1000, 1100, 1200, 1279, 1300, 1400, 1492, 1500, 1530, 1600]
 
 function DesktopToggle({ currentYear, onChange }: { currentYear: number; onChange: (y: number) => void }) {
   return (

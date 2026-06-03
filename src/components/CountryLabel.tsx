@@ -20,6 +20,15 @@ const DETAILED_LABEL_IDS = new Set([
   'ottoman_empire', 'grand_duchy_of_moscow', 'tsardom_of_muscovy', 'crimean_khanate',
   'safavid_empire', 'hafsid_caliphate', 'swiss_confederation', 'habsburg_netherlands',
   'moldova', 'serbia', 'morocco',
+  // Early medieval (800–1100)
+  'carolingian_empire', 'east_francia', 'west_francia',
+  'rus_khaganate', 'khazars', 'avars', 'lombard_duchies', 'magyars', 'great_moravia',
+  'slavonic_tribes', 'celtic_kingdoms', 'asturias', 'seljuk_empire', 'samanid_empire',
+  'mongols', 'icelandic_commonwealth', 'swedes_and_goths', 'pomerania', 'ests', 'finns',
+  'karakalpaks', 'oasis', 'almoravid_dynasty',
+  // 1600
+  'dutch_republic', 'japan_warring_states', 'vijayanagara', 'bengal',
+  'ahmadnagar', 'bidar', 'bijapur', 'golkonda', 'nogai_horde', 'khanate_of_kazan',
 ])
 
 const UNIFIED_LABEL_IDS = new Set([
@@ -27,6 +36,8 @@ const UNIFIED_LABEL_IDS = new Set([
   'denmark', 'sweden', 'norway', 'byzantine_empire', 'bulgaria', 'kievan_rus',
   'golden_horde', 'ilkhanate', 'mamluke_sultanate', 'granada', 'ottoman_empire',
   'grand_duchy_of_moscow', 'tsardom_of_muscovy', 'papal_states', 'venice',
+  'carolingian_empire', 'seljuk_empire', 'mongols', 'dutch_republic', 'japan_warring_states',
+  'vijayanagara', 'mongol_empire',
 ])
 
 export default function CountryLabel({ country, layer }: CountryLabelProps) {

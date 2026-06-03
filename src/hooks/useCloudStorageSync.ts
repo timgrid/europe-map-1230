@@ -5,7 +5,7 @@ import { cloudGetItem, cloudSetItem } from '../utils/telegram'
 import { useTelegram } from './useTelegram'
 
 const KEY = 'europe-map:currentYear'
-const VALID_YEARS = [1200, 1279, 1300, 1400, 1492, 1500, 1530] as const
+const VALID_YEARS = [800, 900, 1000, 1100, 1200, 1279, 1300, 1400, 1492, 1500, 1530, 1600] as const
 
 export function useCloudStorageSync() {
   const { isTG } = useTelegram()
