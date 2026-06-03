@@ -1,5 +1,6 @@
 // Purpose: Zustand store — глобальное состояние (currentYear, layer, selectedCountry, isLoading, reloadKey)
 import { create } from 'zustand'
+import { hapticSelection, hapticNotification } from './utils/telegram'
 
 export interface CountryInfo {
   id: string
@@ -39,16 +40,25 @@ export const useMapStore = create<MapState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
 
   currentYear: 1200,
-  setYear: (year) => set({ currentYear: year }),
+  setYear: (year) => {
+    hapticSelection()
+    set({ currentYear: year })
+  },
   reloadKey: 0,
   reload: () => set((s) => ({ reloadKey: s.reloadKey + 1, isLoading: true })),
 
   layer: 'detailed',
-  setLayer: (layer) => set({ layer }),
+  setLayer: (layer) => {
+    hapticSelection()
+    set({ layer })
+  },
 
   hoveredCountry: null,
   setHoveredCountry: (id) => set({ hoveredCountry: id }),
 
   selectedCountry: null,
-  setSelectedCountry: (country) => set({ selectedCountry: country }),
+  setSelectedCountry: (country) => {
+    if (country) hapticNotification('success')
+    set({ selectedCountry: country })
+  },
 }))

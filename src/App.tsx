@@ -52,11 +52,14 @@ function App() {
     }
   }, [isTG, expand])
 
-  // Set Telegram header/bg color on init
+  // Set Telegram header/bg/bottom bar color on init
   useEffect(() => {
     if (isTG && tg) {
       tg.setHeaderColor(theme.bg_color)
       tg.setBackgroundColor('#0a1628')
+      if (typeof tg.setBottomBarColor === 'function') {
+        tg.setBottomBarColor(theme.bg_color)
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTG])
@@ -118,7 +121,8 @@ function App() {
       <Canvas
         camera={{ position: cameraPosition, fov: 18, near: 0.1, far: 800 }}
         shadows={!isMobile}
-        gl={{ antialias: true, alpha: false }}
+        dpr={isMobile ? [1, 1.25] : [1, 1.75]}
+        gl={{ antialias: !isMobile, alpha: false, powerPreference: 'high-performance' }}
         style={{ background: '#0a1628' }}
         onPointerMissed={handlePointerMissed}
         frameloop="demand"

@@ -31,6 +31,7 @@ export interface TelegramWebApp {
   close: () => void
   setHeaderColor: (color: string) => void
   setBackgroundColor: (color: string) => void
+  setBottomBarColor?: (color: string) => void
   enableClosingConfirmation: () => void
   disableClosingConfirmation: () => void
 
@@ -78,5 +79,26 @@ export function initTelegram(): TelegramWebApp | null {
   if (!tg) return null
   tg.ready()
   tg.expand()
+  if (typeof tg.enableClosingConfirmation === 'function') {
+    tg.enableClosingConfirmation()
+  }
   return tg
+}
+
+export function hapticImpact(style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft' = 'light') {
+  const tg = getTelegram()
+  if (!tg) return
+  try { tg.HapticFeedback.impactOccurred(style) } catch { /* noop */ }
+}
+
+export function hapticNotification(type: 'error' | 'success' | 'warning' = 'success') {
+  const tg = getTelegram()
+  if (!tg) return
+  try { tg.HapticFeedback.notificationOccurred(type) } catch { /* noop */ }
+}
+
+export function hapticSelection() {
+  const tg = getTelegram()
+  if (!tg) return
+  try { tg.HapticFeedback.selectionChanged() } catch { /* noop */ }
 }
