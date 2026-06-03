@@ -11,6 +11,17 @@ export interface TelegramThemeParams {
   section_header_text_color?: string
   subtitle_text_color?: string
   destructive_text_color?: string
+  header_bg_color?: string
+  accent_text_color?: string
+  section_separator_color?: string
+  bottom_bar_bg_color?: string
+}
+
+export interface TelegramSafeAreaInset {
+  top: number
+  bottom: number
+  left: number
+  right: number
 }
 
 export interface TelegramWebApp {
@@ -21,10 +32,17 @@ export interface TelegramWebApp {
   colorScheme: 'light' | 'dark'
   themeParams: TelegramThemeParams
   isExpanded: boolean
+  isFullscreen: boolean
+  isActive: boolean
   viewportHeight: number
   viewportStableHeight: number
   headerColor: string
   backgroundColor: string
+  bottomBarColor: string
+  safeAreaInset: TelegramSafeAreaInset
+  contentSafeAreaInset: TelegramSafeAreaInset
+  isVerticalSwipesEnabled: boolean
+  isClosingConfirmationEnabled: boolean
 
   ready: () => void
   expand: () => void
@@ -34,6 +52,10 @@ export interface TelegramWebApp {
   setBottomBarColor?: (color: string) => void
   enableClosingConfirmation: () => void
   disableClosingConfirmation: () => void
+  requestFullscreen?: () => void
+  exitFullscreen?: () => void
+  enableVerticalSwipes?: () => void
+  disableVerticalSwipes?: () => void
 
   BackButton: {
     isVisible: boolean
@@ -52,7 +74,7 @@ export interface TelegramWebApp {
   onEvent: (eventType: string, cb: (data?: unknown) => void) => void
   offEvent: (eventType: string, cb: (data?: unknown) => void) => void
   sendData: (data: string) => void
-  openLink: (url: string) => void
+  openLink: (url: string, options?: { try_instant_view?: boolean }) => void
   openTelegramLink: (url: string) => void
 }
 
@@ -81,6 +103,10 @@ export function initTelegram(): TelegramWebApp | null {
   tg.expand()
   if (typeof tg.enableClosingConfirmation === 'function') {
     tg.enableClosingConfirmation()
+  }
+  // Vertical swipes must be disabled on a 3D map — pan gesture would close Mini App
+  if (typeof tg.disableVerticalSwipes === 'function') {
+    tg.disableVerticalSwipes()
   }
   return tg
 }

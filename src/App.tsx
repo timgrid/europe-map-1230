@@ -9,7 +9,7 @@ import LayerToggle from './components/UI/LayerToggle'
 import YearToggle from './components/UI/YearToggle'
 import LoadingScreen from './components/UI/LoadingScreen'
 import ControlsHint from './components/UI/ControlsHint'
-import ExpandButton from './components/UI/ExpandButton'
+import FullscreenButton from './components/UI/FullscreenButton'
 import { useMapStore } from './store'
 import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
@@ -31,7 +31,7 @@ function App() {
   const reloadKey = useMapStore((state) => state.reloadKey)
   const setSelectedCountry = useMapStore((state) => state.setSelectedCountry)
   const isMobile = useIsMobile()
-  const { isTG, theme, tg, viewportStableHeight, expand } = useTelegram()
+  const { isTG, theme, tg, viewportStableHeight, safeAreaInset, isActive, expand } = useTelegram()
 
   // Auto-expand on first user gesture (Telegram allows expand() only after user gesture)
   const expandTriedRef = useRef(false)
@@ -104,7 +104,14 @@ function App() {
     <div className={`relative w-screen overflow-hidden tg-ui ${isTG ? '' : 'bg-slate-900'}`}
       style={{
         ...(isTG
-          ? { backgroundColor: theme.bg_color, height: `${viewportStableHeight}px` }
+          ? {
+              backgroundColor: theme.bg_color,
+              height: `${viewportStableHeight}px`,
+              paddingTop: `${safeAreaInset.top}px`,
+              paddingBottom: `${safeAreaInset.bottom}px`,
+              paddingLeft: `${safeAreaInset.left}px`,
+              paddingRight: `${safeAreaInset.right}px`,
+            }
           : { height: '100vh' }),
         '--tg-bg': theme.bg_color,
         '--tg-text': theme.text_color,
@@ -125,7 +132,7 @@ function App() {
         gl={{ antialias: !isMobile, alpha: false, powerPreference: 'high-performance' }}
         style={{ background: '#0a1628' }}
         onPointerMissed={handlePointerMissed}
-        frameloop="demand"
+        frameloop={isActive ? 'demand' : 'never'}
       >
         <fog attach="fog" args={['#0a1628', 300, 600]} />
 
@@ -173,7 +180,7 @@ function App() {
       </Canvas>
 
       <TelegramBackButton />
-      <ExpandButton />
+      <FullscreenButton />
 
       {/* UI Overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{ padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)' }}>
@@ -198,13 +205,15 @@ function App() {
           )}
         </div>
 
-        {/* Reset button */}
-        <button
-          onClick={() => setSelectedCountry(null)}
-          className={`touch-target absolute top-1/2 -translate-y-1/2 z-30 px-3 py-2 rounded-lg text-sm font-medium transition-all border bg-slate-800/80 text-slate-300 border-slate-600 hover:border-amber-200/50 pointer-events-auto ${isMobile ? 'right-2' : 'top-4 left-1/2 -translate-x-1/2'}`}
-        >
-          ✕
-        </button>
+        {/* Reset button — hidden in TG (BackButton handles this) */}
+        {!isTG && (
+          <button
+            onClick={() => setSelectedCountry(null)}
+            className={`touch-target absolute top-1/2 -translate-y-1/2 z-30 px-3 py-2 rounded-lg text-sm font-medium transition-all border bg-slate-800/80 text-slate-300 border-slate-600 hover:border-amber-200/50 pointer-events-auto ${isMobile ? 'right-2' : 'top-4 left-1/2 -translate-x-1/2'}`}
+          >
+            ✕
+          </button>
+        )}
 
         <ControlsHint />
 
