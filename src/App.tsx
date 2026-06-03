@@ -9,6 +9,7 @@ import LayerToggle from './components/UI/LayerToggle'
 import YearToggle from './components/UI/YearToggle'
 import LoadingScreen from './components/UI/LoadingScreen'
 import ControlsHint from './components/UI/ControlsHint'
+import ExpandButton from './components/UI/ExpandButton'
 import { useMapStore } from './store'
 import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
@@ -30,7 +31,26 @@ function App() {
   const reloadKey = useMapStore((state) => state.reloadKey)
   const setSelectedCountry = useMapStore((state) => state.setSelectedCountry)
   const isMobile = useIsMobile()
-  const { isTG, theme, tg } = useTelegram()
+  const { isTG, theme, tg, viewportStableHeight, expand } = useTelegram()
+
+  // Auto-expand on first user gesture (Telegram allows expand() only after user gesture)
+  const expandTriedRef = useRef(false)
+  useEffect(() => {
+    if (!isTG || expandTriedRef.current) return
+    const tryExpand = () => {
+      if (expandTriedRef.current) return
+      expandTriedRef.current = true
+      expand()
+      window.removeEventListener('pointerdown', tryExpand)
+      window.removeEventListener('keydown', tryExpand)
+    }
+    window.addEventListener('pointerdown', tryExpand, { once: true })
+    window.addEventListener('keydown', tryExpand, { once: true })
+    return () => {
+      window.removeEventListener('pointerdown', tryExpand)
+      window.removeEventListener('keydown', tryExpand)
+    }
+  }, [isTG, expand])
 
   // Set Telegram header/bg color on init
   useEffect(() => {
@@ -78,9 +98,11 @@ function App() {
   const cameraPosition: [number, number, number] = [mapCenter.x, 180, -mapCenter.y + 25]
 
   return (
-    <div className={`relative w-screen h-screen overflow-hidden tg-ui ${isTG ? '' : 'bg-slate-900'}`}
+    <div className={`relative w-screen overflow-hidden tg-ui ${isTG ? '' : 'bg-slate-900'}`}
       style={{
-        ...(isTG ? { backgroundColor: theme.bg_color } : {}),
+        ...(isTG
+          ? { backgroundColor: theme.bg_color, height: `${viewportStableHeight}px` }
+          : { height: '100vh' }),
         '--tg-bg': theme.bg_color,
         '--tg-text': theme.text_color,
         '--tg-hint': theme.hint_color,
@@ -88,7 +110,7 @@ function App() {
         '--tg-button': theme.button_color,
         '--tg-button-text': theme.button_text_color,
         '--tg-secondary-bg': theme.secondary_bg_color,
-      } as React.CSSProperties}
+      } as unknown as React.CSSProperties}
       onPointerDown={(e) => { pointerDown.current = { x: e.clientX, y: e.clientY } }}
     >
       {isLoading && <LoadingScreen />}
@@ -147,6 +169,7 @@ function App() {
       </Canvas>
 
       <TelegramBackButton />
+      <ExpandButton />
 
       {/* UI Overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{ padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)' }}>
