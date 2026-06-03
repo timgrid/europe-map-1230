@@ -7,7 +7,7 @@
 
 **europe-map-1230** — интерактивная 3D-карта Европы для веба в стиле EU4/EU5. Показывает политические
 границы за годы **1200, 1279, 1300, 1400, 1492, 1500, 1530**. React + Three.js, русский UI, деплой на
-GitHub Pages.
+GitHub Pages + Telegram Mini App.
 
 - Live: https://timgrid.github.io/europe-map-1230/
 - Репо: https://github.com/timgrid/europe-map-1230
@@ -49,17 +49,20 @@ node scripts/process-geojson.cjs 1500
 
 ```
 europe-map-1230/
-├── docs/adr/              # Architecture Decision Records (см. ADR index)
+├── docs/
+│   ├── adr/               # Architecture Decision Records (см. ADR index)
+│   └── telegram-deploy.md # Инструкция по публикации в Telegram Mini App
 ├── public/
 │   ├── data/processed/    # готовые europe_<year>.json (minified, ~100-145KB каждый)
 │   └── world_*.geojson    # исходные GeoJSON (GITIGNORED, скачивать руками)
 ├── scripts/
 │   └── process-geojson.cjs  # build-time препроцессинг
 ├── src/
-│   ├── components/        # React-компоненты (UI/, MapScene, CountryMesh)
+│   ├── components/        # React-компоненты (UI/, MapScene, CountryMesh, TelegramBackButton)
 │   ├── data/              # статические словари (countryMetadata.ts)
+│   ├── hooks/             # useDeviceType, useTelegram
 │   ├── store.ts           # Zustand state
-│   ├── utils/             # dataLoader, geoParser
+│   ├── utils/             # dataLoader, geoParser, telegram
 │   ├── App.tsx            # корневой компонент
 │   └── main.tsx
 ├── tests/                 # vitest (adr, commits, geoParser)
