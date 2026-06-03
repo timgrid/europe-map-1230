@@ -13,6 +13,8 @@ import { useMapStore } from './store'
 import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
 import { useIsMobile } from './hooks/useDeviceType'
+import { useTelegram } from './hooks/useTelegram'
+import TelegramBackButton from './components/TelegramBackButton'
 import './index.css'
 
 const PAN = 1
@@ -28,6 +30,16 @@ function App() {
   const reloadKey = useMapStore((state) => state.reloadKey)
   const setSelectedCountry = useMapStore((state) => state.setSelectedCountry)
   const isMobile = useIsMobile()
+  const { isTG, theme, tg } = useTelegram()
+
+  // Set Telegram header/bg color on init
+  useEffect(() => {
+    if (isTG && tg) {
+      tg.setHeaderColor(theme.bg_color)
+      tg.setBackgroundColor('#0a1628')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTG])
 
   // A4: discard pointermissed after drag
   const pointerDown = useRef<{ x: number; y: number } | null>(null)
@@ -66,7 +78,17 @@ function App() {
   const cameraPosition: [number, number, number] = [mapCenter.x, 180, -mapCenter.y + 25]
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-900"
+    <div className={`relative w-screen h-screen overflow-hidden tg-ui ${isTG ? '' : 'bg-slate-900'}`}
+      style={{
+        ...(isTG ? { backgroundColor: theme.bg_color } : {}),
+        '--tg-bg': theme.bg_color,
+        '--tg-text': theme.text_color,
+        '--tg-hint': theme.hint_color,
+        '--tg-link': theme.link_color,
+        '--tg-button': theme.button_color,
+        '--tg-button-text': theme.button_text_color,
+        '--tg-secondary-bg': theme.secondary_bg_color,
+      } as React.CSSProperties}
       onPointerDown={(e) => { pointerDown.current = { x: e.clientX, y: e.clientY } }}
     >
       {isLoading && <LoadingScreen />}
@@ -124,6 +146,8 @@ function App() {
         />
       </Canvas>
 
+      <TelegramBackButton />
+
       {/* UI Overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{ padding: 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)' }}>
         {/* Top-right controls */}
@@ -139,11 +163,11 @@ function App() {
 
         {/* Title */}
         <div className={`absolute ${isMobile ? 'top-16 left-2' : 'top-4 left-4'} pointer-events-auto`}>
-          <h1 className={`font-bold text-amber-100 drop-shadow-lg ${isMobile ? 'text-lg' : 'text-3xl'}`} style={{ fontFamily: 'Georgia, serif' }}>
+          <h1 className={`font-bold drop-shadow-lg ${isMobile ? 'text-lg' : 'text-3xl'}`} style={{ fontFamily: 'Georgia, serif', color: isTG ? theme.text_color : '#fef3c7' }}>
             Европа в {currentYear} году
           </h1>
           {!isMobile && (
-            <p className="text-sm text-amber-200/70 mt-1 tracking-wide">Интерактивная политическая карта</p>
+            <p className="text-sm mt-1 tracking-wide" style={{ color: isTG ? theme.hint_color : 'rgba(253,230,138,0.7)' }}>Интерактивная политическая карта</p>
           )}
         </div>
 
@@ -158,7 +182,7 @@ function App() {
         <ControlsHint />
 
         {/* Scale */}
-        <div className="absolute bottom-4 right-4 text-xs text-slate-400/80 pointer-events-auto">
+        <div className="absolute bottom-4 right-4 text-xs pointer-events-auto" style={{ color: isTG ? theme.hint_color : 'rgba(148,163,184,0.8)' }}>
           <div className="flex items-end gap-1">
             <div className="w-20 sm:w-24 h-0.5 bg-amber-200/60 relative">
               <div className="absolute -top-1 left-0 w-0.5 h-2 bg-amber-200/60" />

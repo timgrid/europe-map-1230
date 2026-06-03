@@ -4,7 +4,9 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  /* Fallback bg — overridden by --tg-bg when in Telegram */
   background-color: #0f172a;
+  background-color: var(--tg-bg, #0f172a);
   /* Prevent pull-to-refresh and overscroll on mobile */
   overscroll-behavior: none;
   -webkit-overflow-scrolling: auto;
@@ -15,6 +17,17 @@ body {
   height: 100vh;
   /* Safe area for notched devices */
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Telegram Mini App — автоматическая тема через CSS-переменные */
+.tg-ui {
+  --color-bg: var(--tg-bg, #0f172a);
+  --color-text: var(--tg-text, #fef3c7);
+  --color-hint: var(--tg-hint, #94a3b8);
+  --color-link: var(--tg-link, #60a5fa);
+  --color-button: var(--tg-button, #f59e0b);
+  --color-button-text: var(--tg-button-text, #0f172a);
+  --color-secondary-bg: var(--tg-secondary-bg, #1e293b);
 }
 
 /* Touch-friendly target sizing */
