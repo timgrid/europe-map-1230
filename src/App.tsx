@@ -15,6 +15,7 @@ import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
 import { useIsMobile } from './hooks/useDeviceType'
 import { useTelegram } from './hooks/useTelegram'
+import { useCloudStorageSync } from './hooks/useCloudStorageSync'
 import TelegramBackButton from './components/TelegramBackButton'
 import './index.css'
 
@@ -32,6 +33,7 @@ function App() {
   const setSelectedCountry = useMapStore((state) => state.setSelectedCountry)
   const isMobile = useIsMobile()
   const { isTG, theme, tg, viewportStableHeight, safeAreaInset, isActive, expand } = useTelegram()
+  useCloudStorageSync()
 
   // Auto-expand on first user gesture (Telegram allows expand() only after user gesture)
   const expandTriedRef = useRef(false)

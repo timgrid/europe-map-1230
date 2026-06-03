@@ -71,6 +71,11 @@ export interface TelegramWebApp {
     selectionChanged: () => void
   }
 
+  CloudStorage?: {
+    setItem: (key: string, value: string, cb?: (err: string | null, ok?: boolean) => unknown) => void
+    getItem: (key: string, cb?: (err: string | null, value?: string) => unknown) => void
+  }
+
   onEvent: (eventType: string, cb: (data?: unknown) => void) => void
   offEvent: (eventType: string, cb: (data?: unknown) => void) => void
   sendData: (data: string) => void
@@ -127,4 +132,33 @@ export function hapticSelection() {
   const tg = getTelegram()
   if (!tg) return
   try { tg.HapticFeedback.selectionChanged() } catch { /* noop */ }
+}
+
+export function cloudGetItem(key: string): Promise<string | null> {
+  const tg = getTelegram()
+  if (!tg?.CloudStorage) return Promise.resolve(null)
+  return new Promise((resolve) => {
+    try {
+      tg.CloudStorage!.getItem(key, (err, value) => {
+        if (err || value === undefined) resolve(null)
+        else resolve(value)
+      })
+    } catch {
+      resolve(null)
+    }
+  })
+}
+
+export function cloudSetItem(key: string, value: string): Promise<boolean> {
+  const tg = getTelegram()
+  if (!tg?.CloudStorage) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    try {
+      tg.CloudStorage!.setItem(key, value, (err, ok) => {
+        resolve(ok === true && !err)
+      })
+    } catch {
+      resolve(false)
+    }
+  })
 }
