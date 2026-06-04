@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   getTelegram,
+  isFullscreenSupported as checkFullscreenSupported,
   type TelegramWebApp,
   type TelegramThemeParams,
   type TelegramSafeAreaInset,
@@ -15,6 +16,7 @@ export interface TelegramState {
   platform: string
   isExpanded: boolean
   isFullscreen: boolean
+  isFullscreenSupported: boolean
   isActive: boolean
   viewportHeight: number
   viewportStableHeight: number
@@ -54,6 +56,7 @@ export function useTelegram(): TelegramState {
         platform: '',
         isExpanded: false,
         isFullscreen: false,
+        isFullscreenSupported: false,
         isActive: true,
         viewportHeight: winH,
         viewportStableHeight: winH,
@@ -72,6 +75,7 @@ export function useTelegram(): TelegramState {
       platform: t.platform,
       isExpanded: t.isExpanded,
       isFullscreen: t.isFullscreen ?? false,
+      isFullscreenSupported: checkFullscreenSupported(t),
       isActive: t.isActive ?? true,
       viewportHeight: t.viewportHeight,
       viewportStableHeight: t.viewportStableHeight,

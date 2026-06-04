@@ -17,6 +17,7 @@ import { useIsMobile } from './hooks/useDeviceType'
 import { useTelegram } from './hooks/useTelegram'
 import { useCloudStorageSync } from './hooks/useCloudStorageSync'
 import TelegramBackButton from './components/TelegramBackButton'
+import { isFullscreenSupported, getTelegram } from './utils/telegram'
 import './index.css'
 
 const PAN = 1
@@ -35,22 +36,27 @@ function App() {
   const { isTG, theme, tg, viewportStableHeight, safeAreaInset, isActive, expand } = useTelegram()
   useCloudStorageSync()
 
-  // Auto-expand on first user gesture (Telegram allows expand() only after user gesture)
+  // Auto-expand + auto-fullscreen on first user gesture
+  // (Telegram WebApp SDK requires both expand() and requestFullscreen()
+  //  to be called from a user gesture handler; we attach once.)
   const expandTriedRef = useRef(false)
   useEffect(() => {
     if (!isTG || expandTriedRef.current) return
-    const tryExpand = () => {
+    const onFirstGesture = () => {
       if (expandTriedRef.current) return
       expandTriedRef.current = true
       expand()
-      window.removeEventListener('pointerdown', tryExpand)
-      window.removeEventListener('keydown', tryExpand)
+      if (isFullscreenSupported()) {
+        try { getTelegram()?.requestFullscreen?.() } catch { /* noop */ }
+      }
+      window.removeEventListener('pointerdown', onFirstGesture)
+      window.removeEventListener('keydown', onFirstGesture)
     }
-    window.addEventListener('pointerdown', tryExpand, { once: true })
-    window.addEventListener('keydown', tryExpand, { once: true })
+    window.addEventListener('pointerdown', onFirstGesture, { once: true })
+    window.addEventListener('keydown', onFirstGesture, { once: true })
     return () => {
-      window.removeEventListener('pointerdown', tryExpand)
-      window.removeEventListener('keydown', tryExpand)
+      window.removeEventListener('pointerdown', onFirstGesture)
+      window.removeEventListener('keydown', onFirstGesture)
     }
   }, [isTG, expand])
 
