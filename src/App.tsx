@@ -1,5 +1,5 @@
 // Purpose: корневой компонент приложения | App root — canvas R3F, UI-оверлей, загрузка данных
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import MapScene from './components/MapScene'
@@ -10,9 +10,11 @@ import YearToggle from './components/UI/YearToggle'
 import LoadingScreen from './components/UI/LoadingScreen'
 import ControlsHint from './components/UI/ControlsHint'
 import FullscreenButton from './components/UI/FullscreenButton'
+import CameraRig from './components/CameraRig'
 import { useMapStore } from './store'
 import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
+import { getMapSize, getInitialCameraConfig } from './utils/camera'
 import { useIsMobile } from './hooks/useDeviceType'
 import { useTelegram } from './hooks/useTelegram'
 import { useCloudStorageSync } from './hooks/useCloudStorageSync'
@@ -20,12 +22,20 @@ import TelegramBackButton from './components/TelegramBackButton'
 import { isFullscreenSupported, getTelegram } from './utils/telegram'
 import './index.css'
 
+const CAMERA_FOV = 20
+const CAMERA_POLAR = 0.2
+const CAMERA_PADDING = 1.15
+const CAMERA_MIN_DIST = 200
+const CAMERA_MAX_DIST = 1500
+
 const PAN = 1
 const DOLLY_ROTATE = 3
 
 function App() {
   const [countries, setCountries] = useState<CountryGeometry[]>([])
   const [mapCenter, setMapCenter] = useState({ x: 0, y: 0 })
+  const [mapSize, setMapSize] = useState({ width: 300, height: 222 })
+  const [aspect, setAspect] = useState(() => window.innerWidth / window.innerHeight)
 
   const currentYear = useMapStore((state) => state.currentYear)
   const isLoading = useMapStore((state) => state.isLoading)
@@ -85,6 +95,7 @@ function App() {
         setCountries(parseEuropeGeoJSON(data))
         const center = getMapCenter(data)
         setMapCenter({ x: center.x, y: center.y })
+        setMapSize(getMapSize(data))
       })
       .catch((err) => {
         console.error(`Failed to load year ${currentYear}:`, err)
@@ -94,6 +105,32 @@ function App() {
       })
     return () => { cancelled = true }
   }, [currentYear, reloadKey, setLoading])
+
+  // Track viewport aspect for camera fit
+  useEffect(() => {
+    const onResize = () => setAspect(window.innerWidth / window.innerHeight)
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onResize)
+    }
+  }, [])
+
+  // Compute camera position to fit the current map size on screen
+  const cameraFit = useMemo(
+    () => getInitialCameraConfig({
+      mapWidth: mapSize.width,
+      mapHeight: mapSize.height,
+      fov: CAMERA_FOV,
+      aspect,
+      padding: CAMERA_PADDING,
+      polarAngle: CAMERA_POLAR,
+      minDistance: CAMERA_MIN_DIST,
+      maxDistance: CAMERA_MAX_DIST,
+    }),
+    [mapSize.width, mapSize.height, aspect],
+  )
 
   const handlePointerMissed = useCallback((event: MouseEvent) => {
     if (pointerDown.current) {
@@ -106,7 +143,11 @@ function App() {
   }, [setSelectedCountry])
 
   const worldCenter: [number, number, number] = [mapCenter.x, 0, -mapCenter.y]
-  const cameraPosition: [number, number, number] = [mapCenter.x, 180, -mapCenter.y + 25]
+  const cameraPosition: [number, number, number] = [
+    mapCenter.x,
+    cameraFit.yOffset,
+    -mapCenter.y + cameraFit.zOffset,
+  ]
 
   return (
     <div className={`relative w-screen overflow-hidden tg-ui ${isTG ? '' : 'bg-slate-900'}`}
@@ -134,7 +175,7 @@ function App() {
       {isLoading && <LoadingScreen />}
 
       <Canvas
-        camera={{ position: cameraPosition, fov: 18, near: 0.1, far: 800 }}
+        camera={{ position: cameraPosition, fov: CAMERA_FOV, near: 0.1, far: 2000 }}
         shadows={!isMobile}
         dpr={isMobile ? [1, 1.25] : [1, 1.75]}
         gl={{ antialias: !isMobile, alpha: false, powerPreference: 'high-performance' }}
@@ -142,7 +183,9 @@ function App() {
         onPointerMissed={handlePointerMissed}
         frameloop={isActive ? 'demand' : 'never'}
       >
-        <fog attach="fog" args={['#0a1628', 300, 600]} />
+        <CameraRig position={cameraPosition} target={worldCenter} fov={CAMERA_FOV} />
+
+        <fog attach="fog" args={['#0a1628', 500, 1200]} />
 
         <ambientLight intensity={0.5} color="#ffd4a3" />
         <directionalLight
@@ -155,11 +198,11 @@ function App() {
                 castShadow: true,
                 'shadow-mapSize-width': 2048,
                 'shadow-mapSize-height': 2048,
-                'shadow-camera-far': 400,
-                'shadow-camera-left': -150,
-                'shadow-camera-right': 150,
-                'shadow-camera-top': 150,
-                'shadow-camera-bottom': -150,
+                'shadow-camera-far': 500,
+                'shadow-camera-left': -180,
+                'shadow-camera-right': 180,
+                'shadow-camera-top': 180,
+                'shadow-camera-bottom': -180,
               })}
         />
         <hemisphereLight args={['#87CEEB', '#8B4513', 0.3]} />
@@ -174,8 +217,8 @@ function App() {
           enableRotate={true}
           minPolarAngle={0.1}
           maxPolarAngle={0.6}
-          minDistance={80}
-          maxDistance={400}
+          minDistance={CAMERA_MIN_DIST}
+          maxDistance={CAMERA_MAX_DIST}
           rotateSpeed={0.25}
           zoomSpeed={0.6}
           panSpeed={0.8}

@@ -14,6 +14,7 @@
 | [0007](./0007-russian-language-ui.md) | Русский язык интерфейса | Accepted |
 | [0008](./0008-conventional-commits-and-adr.md) | Conventional Commits + ADR + тесты | Accepted |
 | [0009](./0009-zustand-for-state.md) | Zustand для глобального состояния | Accepted |
+| [0010](./0010-camera-initial-view.md) | Динамический fit-to-view камеры по размеру карты | Accepted |
 
 ## Формат
 

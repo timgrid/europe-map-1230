@@ -35,7 +35,7 @@ GitHub Pages + Telegram Mini App.
 npm ci              # установка зависимостей (запускает husky init)
 npm run dev         # dev-сервер с HMR
 npm run build       # tsc -b && vite build → dist/
-npm test            # vitest run (22 теста, ~1.5s)
+npm test            # vitest run (61 тест, ~0.8s)
 npm run test:watch  # vitest в режиме watch
 npm run test:coverage
 npm run lint        # eslint
@@ -135,8 +135,10 @@ europe-map-1230/
 - **Не редактируй файлы в `public/data/processed/` вручную** — они генерируются скриптом.
 - **Не коммить `public/world_*.geojson`** — они в .gitignore. Скачиваются руками при добавлении года.
 - **Не используй `useEffect` без deps array** или с лишними deps.
-- **Не поднимай fov камеры выше 30** — текущий fov 18 даёт правильную перспективу для
+- **Не поднимай fov камеры выше 30** — текущий fov 20 даёт правильную перспективу для
   политической карты. Слишком широкий fov исказит масштаб Скандинавии vs Средиземноморья.
+  **Камера управляется утилитой `getInitialCameraConfig()`** в `src/utils/camera.ts` —
+  не задавай позицию камеры вручную, передавай `mapSize` + aspect ratio.
 - **Не добавляй console.log в production-сборку** — используй debug-флаг если нужно.
 - **Не игнорируй commit-msg хук** через `--no-verify` без причины. Если хук неправ — фиксни хук.
 - **Не дублируй код конвертации HEX↔RGB** — посмотри в `MapScene.tsx` и `CountryMesh.tsx`,
@@ -155,8 +157,11 @@ europe-map-1230/
 - `tests/adr.test.ts` — 7 тестов структуры ADR
 - `tests/commits.test.ts` — 3 теста (commitlint config + hook + история с cutoff `9f7ca3d`)
 - `tests/geoParser.test.ts` — 12 тестов геометрии
+- `tests/camera.test.ts` — 15 тестов расчёта камеры (getMapSize, getInitialCameraConfig)
+- `tests/schema.test.ts` — 7 тестов Zod-валидации
+- `tests/telegram.test.ts` — 17 тестов TG-утилит (parseSDKVersion, isFullscreenSupported, etc.)
 - `vitest.config.ts` — Node environment, coverage на `src/utils/**` и `src/data/**`
-- Husky `pre-commit` запускает `npm test` (~1.5s)
+- Husky `pre-commit` запускает `npm test` (~0.8s)
 
 ## Где что искать
 
@@ -166,7 +171,7 @@ europe-map-1230/
 | Цвета и алиасы стран | `scripts/process-geojson.cjs` (colorMap, commonAliases) |
 | Русские описания стран | `src/data/countryMetadata.ts` |
 | Подписи на карте | `src/components/MapScene.tsx` (labelCountries) |
-| Камера / свет | `src/App.tsx` |
+| Камера / свет | `src/App.tsx` + `src/utils/camera.ts` (getInitialCameraConfig) + `src/components/CameraRig.tsx` |
 | Данные конкретного года | `public/data/processed/europe_<year>.json` |
 | Исходник (gitignored) | `public/world_<year>.geojson` |
 | Почему так, а не иначе | `docs/adr/` |
