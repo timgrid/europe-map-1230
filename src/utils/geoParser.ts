@@ -120,7 +120,7 @@ function distToSegmentPx(px: number, py: number, ax: number, ay: number, bx: num
   return Math.hypot(px - cx, py - cy)
 }
 
-function pointInPolygonWithHoles(x: number, y: number, outer: number[][], holes: number[][][]): boolean {
+export function pointInPolygonWithHoles(x: number, y: number, outer: number[][], holes: number[][][]): boolean {
   if (!pointInRing(x, y, outer)) return false
   for (const hole of holes) {
     if (pointInRing(x, y, hole)) return false

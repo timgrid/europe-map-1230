@@ -1,9 +1,9 @@
-// Purpose: 2D HTML/SVG-оверлей для подписей стран | проецирует центры и spine через cameraSnapshot, считает fontSize (LOD с гистерезисом), решает пересечения для point-label, рендерит SVG textPath для крупных вытянутых стран (EU4-style), динамически выбирает shortName когда полное имя не помещается
+// Purpose: 2D HTML/SVG-оверлей для подписей стран | проецирует центры и spine через cameraSnapshot, считает fontSize (LOD с гистерезисом), решает пересечения для point-label, рендерит SVG textPath для крупных вытянутых стран (EU4-style), динамически выбирает shortName когда полное имя не помещается, многострочный wrap для длинных имён (Clausewitz-style: балансировка слов + сдвиг spine по нормали + clipping check)
 import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
-import { getCountrySpine, buildScreenSpine, type SpinePoint } from '../utils/spine'
+import { getCountrySpine, buildScreenSpine, ensureReadableDirection, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../utils/projection'
 import {
@@ -18,6 +18,13 @@ import {
   isSpineEligible,
   setAttrIfChanged,
 } from '../utils/overlayPipeline'
+import {
+  wrapBalanced,
+  shiftSpineByNormal,
+  getLineOffsets,
+  isSpineInsidePolygon,
+  shouldUseMultiLine,
+} from '../utils/textPathWrap'
 
 const DETAILED_LABEL_IDS = new Set([
   'england', 'france', 'holy_roman_empire', 'poland', 'hungary', 'castile', 'aragon', 'portugal', 'spain',
@@ -48,11 +55,22 @@ const UNIFIED_LABEL_IDS = new Set([
   'vijayanagara', 'mongol_empire',
 ])
 
+const MAX_LABEL_LINES = 2  // up to 2 lines per label (EU4-style)
+const LINE_SPACING_FACTOR = 1.15  // lineSpacing = fontSize * this
+
 interface LabelData {
   div: HTMLDivElement | null
-  text: SVGTextElement | null
-  textPathEl: SVGTextPathElement | null
-  pathEl: SVGPathElement | null
+  capitalEl: HTMLDivElement | null
+  // Multi-line arrays (size = MAX_LABEL_LINES)
+  texts: (SVGTextElement | null)[]
+  textPathEls: (SVGTextPathElement | null)[]
+  paths: (SVGPathElement | null)[]
+  // Multi-line point-label child divs (size = MAX_LABEL_LINES)
+  pointLineEls: (HTMLDivElement | null)[]
+  // Multi-line data (computed in tick)
+  lastLines: string[]
+  // Cached country reference (for clipping check)
+  country: CountryGeometry | null
   displayName: string
   shortName: string | undefined
   capital: string | undefined
@@ -61,7 +79,6 @@ interface LabelData {
   boundsHeight: number
   spineWorld: SpinePoint[]
   aspect: number
-  lastRenderName: string
   // last data-* attr values (to avoid DOM thrashing via setAttribute every frame)
   lastMode: string
   lastEligible: string
@@ -69,6 +86,7 @@ interface LabelData {
   lastAspect: string
   lastFontSize: string
   lastRenderNameAttr: string
+  lastCapitalVisible: string
 }
 
 interface LabelCandidate extends LabelBox {
@@ -121,6 +139,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         const bounds = getCountryBounds(c)
         const interior = getInteriorPoint(c)
         const spine = getCountrySpine(c, 24)
+        data.country = c
         data.displayName = info?.name ?? c.name
         data.shortName = info?.shortName
         data.capital = info?.capital
@@ -129,7 +148,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         data.boundsHeight = bounds.height
         data.spineWorld = spine
         data.aspect = bounds.height > 0 ? bounds.width / bounds.height : 1
-        data.lastRenderName = data.displayName
+        data.lastLines = [data.displayName]
       }
     }
     const visibleIds = new Set(visibleCountries.map((c) => c.id))
@@ -140,6 +159,163 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
       }
     }
   }, [visibleCountries])
+
+  // ==== Render helpers ====
+
+  function renderLabelHidden(data: LabelData): void {
+    const divEl = data.div!
+    divEl.style.display = 'none'
+    for (let i = 0; i < MAX_LABEL_LINES; i++) {
+      const textEl = data.texts[i]
+      const textPathEl = data.textPathEls[i]
+      const pathEl = data.paths[i]
+      const pointLineEl = data.pointLineEls[i]
+      if (textEl) textEl.style.display = 'none'
+      if (textPathEl) textPathEl.textContent = ''
+      if (pathEl) pathEl.setAttribute('d', '')
+      if (pointLineEl) pointLineEl.style.display = 'none'
+    }
+    if (data.capitalEl) data.capitalEl.style.display = 'none'
+    setAttrIfChanged(divEl, 'data-capital', '0', { value: data.lastCapitalVisible })
+    data.lastCapitalVisible = '0'
+  }
+
+  function renderTextPathMultiLine(
+    data: LabelData,
+    screenSpine: ReturnType<typeof buildScreenSpine>,
+    camera: THREE.Camera,
+    viewport: { width: number; height: number },
+  ): void {
+    const divEl = data.div!
+    const screenLen = screenSpine.screenLen
+    const textPathFontSize = getTextPathFontSize(screenLen) ?? 11
+    const lineSpacing = textPathFontSize * LINE_SPACING_FACTOR
+
+    // Decide lines: try single → multi → shortName
+    const singlePicked = pickFittingName(
+      data.displayName,
+      data.shortName,
+      screenLen,
+      textPathFontSize,
+      undefined,
+    )
+    const isSingleFull = singlePicked === data.displayName
+
+    let lines: string[] = [singlePicked]
+    if (shouldUseMultiLine(data.displayName, data.aspect, isSingleFull)) {
+      const wrapped = wrapBalanced(data.displayName, MAX_LABEL_LINES)
+      // Each wrapped line must fit in screenLen
+      const allFit = wrapped.every((line) => {
+        const charWidth = textPathFontSize * 0.55
+        return line.length * charWidth <= screenLen
+      })
+      if (allFit && data.country) {
+        // Clipping check: each shifted spine must stay inside the country polygon
+        const offsets = getLineOffsets(wrapped.length, lineSpacing)
+        const allInside = offsets.every((off) => {
+          const worldShifted = shiftSpineByNormal(data.spineWorld, off)
+          return isSpineInsidePolygon(worldShifted, data.country!)
+        })
+        if (allInside) {
+          lines = wrapped
+        }
+      }
+    }
+
+    // Render each line
+    const offsets = getLineOffsets(lines.length, lineSpacing)
+    for (let i = 0; i < MAX_LABEL_LINES; i++) {
+      const textEl = data.texts[i]
+      const textPathEl = data.textPathEls[i]
+      const pathEl = data.paths[i]
+      if (i < lines.length && textEl && textPathEl && pathEl) {
+        const offset = offsets[i]!
+        const worldShifted = shiftSpineByNormal(data.spineWorld, offset)
+        const screenShifted = buildScreenSpine(worldShifted, camera, viewport)
+        const readable = ensureReadableDirection(screenShifted.readable)
+        const d = buildPathD(readable)
+        pathEl.setAttribute('d', d)
+        textEl.setAttribute('font-size', String(textPathFontSize))
+        textPathEl.textContent = lines[i]!
+        textEl.style.display = ''
+      } else {
+        if (textEl) textEl.style.display = 'none'
+        if (textPathEl) textPathEl.textContent = ''
+        if (pathEl) pathEl.setAttribute('d', '')
+      }
+    }
+    divEl.style.display = 'none'
+    setAttrIfChanged(divEl, 'data-fontsize', String(textPathFontSize), { value: data.lastFontSize })
+    data.lastFontSize = String(textPathFontSize)
+    data.lastLines = lines
+  }
+
+  function renderPointMultiLine(data: LabelData, cand: LabelCandidate): void {
+    const divEl = data.div!
+    const countryScreenWidth = data.boundsWidth / cand.worldUnitsPerPixel
+    const fontSize = cand.fontSize
+
+    const singlePicked = pickFittingName(
+      data.displayName,
+      data.shortName,
+      countryScreenWidth,
+      fontSize,
+      data.capital,
+    )
+    const isSingleFull = singlePicked === data.displayName
+
+    // For point mode, use the same line-height logic but only stack if multi-line
+    // is enabled AND the country has near-square aspect.
+    let lines: string[]
+    if (shouldUseMultiLine(data.displayName, data.aspect, isSingleFull)) {
+      const wrapped = wrapBalanced(data.displayName, MAX_LABEL_LINES)
+      // For point-label, lines stack vertically — easier to fit
+      const charWidth = fontSize * 0.55
+      const allFit = wrapped.every((line) => line.length * charWidth <= countryScreenWidth)
+      if (allFit) {
+        lines = wrapped
+      } else {
+        lines = [singlePicked]
+      }
+    } else {
+      lines = [singlePicked]
+    }
+
+    // Render point-label lines
+    for (let i = 0; i < MAX_LABEL_LINES; i++) {
+      const lineEl = data.pointLineEls[i]
+      if (!lineEl) continue
+      if (i < lines.length) {
+        lineEl.textContent = lines[i]!
+        lineEl.style.display = ''
+        lineEl.style.lineHeight = String(LINE_SPACING_FACTOR)
+      } else {
+        lineEl.textContent = ''
+        lineEl.style.display = 'none'
+      }
+    }
+    // Capital: show only when name is 1 line (per option D — "ровно 2 строки максимум")
+    const capitalVisible =
+      data.capitalEl != null &&
+      data.capital != null &&
+      layerRef.current === 'unified' &&
+      lines.length === 1
+    if (data.capitalEl) {
+      data.capitalEl.style.display = capitalVisible ? '' : 'none'
+    }
+    setAttrIfChanged(divEl, 'data-capital', capitalVisible ? '1' : '0', { value: data.lastCapitalVisible })
+    data.lastCapitalVisible = capitalVisible ? '1' : '0'
+
+    divEl.style.display = ''
+    divEl.style.left = `${cand.x}px`
+    divEl.style.top = `${cand.y}px`
+    divEl.style.fontSize = `${fontSize}px`
+    setAttrIfChanged(divEl, 'data-fontsize', String(fontSize), { value: data.lastFontSize })
+    data.lastFontSize = String(fontSize)
+    setAttrIfChanged(divEl, 'data-render-name', lines.join(' | '), { value: data.lastRenderNameAttr })
+    data.lastRenderNameAttr = lines.join(' | ')
+    data.lastLines = lines
+  }
 
   useEffect(() => {
     let raf = 0
@@ -206,12 +382,9 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         const visibility = resolveLabelOverlaps(pointCandidates)
         const candidateById = new Map(pointCandidates.map((c) => [c._id, c]))
 
-        // PASS 3: render by mode + set data-* attrs (only on change to avoid thrash).
+        // PASS 3: render by mode + multi-line + data-* attrs.
         for (const [id, data] of dataRef.current) {
           const divEl = data.div
-          const textEl = data.text
-          const textPathEl = data.textPathEl
-          const pathEl = data.pathEl
           if (!divEl) continue
 
           const mode = modeById.get(id) ?? 'hidden'
@@ -238,8 +411,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           data.lastAspect = data.aspect.toFixed(2)
 
           if (!show) {
-            divEl.style.display = 'none'
-            if (textEl) textEl.style.display = 'none'
+            renderLabelHidden(data)
             setAttrIfChanged(divEl, 'data-fontsize', '', { value: data.lastFontSize })
             data.lastFontSize = ''
             setAttrIfChanged(divEl, 'data-render-name', '', { value: data.lastRenderNameAttr })
@@ -247,55 +419,14 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             continue
           }
 
-          if (isTextPath && textEl && textPathEl && pathEl) {
-            const screenLen = screenSpine.screenLen
-            const textPathFontSize = getTextPathFontSize(screenLen) ?? 11
-            const renderName = pickFittingName(
-              data.displayName,
-              data.shortName,
-              screenLen,
-              textPathFontSize,
-              undefined,
-            )
-            if (renderName !== data.lastRenderName) {
-              textPathEl.textContent = renderName
-              data.lastRenderName = renderName
-            }
-            const d = buildPathD(screenSpine.readable)
-            pathEl.setAttribute('d', d)
-            textEl.setAttribute('font-size', String(textPathFontSize))
-            textEl.style.display = ''
-            divEl.style.display = 'none'
-            setAttrIfChanged(divEl, 'data-fontsize', String(textPathFontSize), { value: data.lastFontSize })
-            data.lastFontSize = String(textPathFontSize)
-            setAttrIfChanged(divEl, 'data-render-name', renderName, { value: data.lastRenderNameAttr })
-            data.lastRenderNameAttr = renderName
+          if (isTextPath) {
+            renderTextPathMultiLine(data, screenSpine, camera, viewport)
+            setAttrIfChanged(divEl, 'data-render-name', data.lastLines.join(' | '), { value: data.lastRenderNameAttr })
+            data.lastRenderNameAttr = data.lastLines.join(' | ')
           } else if (isPoint && cand) {
-            const countryScreenWidth = data.boundsWidth / cand.worldUnitsPerPixel
-            const renderName = pickFittingName(
-              data.displayName,
-              data.shortName,
-              countryScreenWidth,
-              cand.fontSize,
-              data.capital,
-            )
-            if (renderName !== data.lastRenderName) {
-              const nameEl = divEl.querySelector<HTMLElement>('[data-country-name]')
-              if (nameEl) nameEl.textContent = renderName
-              data.lastRenderName = renderName
-            }
-            divEl.style.display = ''
-            divEl.style.left = `${cand.x}px`
-            divEl.style.top = `${cand.y}px`
-            divEl.style.fontSize = `${cand.fontSize}px`
-            if (textEl) textEl.style.display = 'none'
-            setAttrIfChanged(divEl, 'data-fontsize', String(cand.fontSize), { value: data.lastFontSize })
-            data.lastFontSize = String(cand.fontSize)
-            setAttrIfChanged(divEl, 'data-render-name', renderName, { value: data.lastRenderNameAttr })
-            data.lastRenderNameAttr = renderName
+            renderPointMultiLine(data, cand)
           } else {
-            divEl.style.display = 'none'
-            if (textEl) textEl.style.display = 'none'
+            renderLabelHidden(data)
             setAttrIfChanged(divEl, 'data-fontsize', '', { value: data.lastFontSize })
             data.lastFontSize = ''
             setAttrIfChanged(divEl, 'data-render-name', '', { value: data.lastRenderNameAttr })
@@ -320,66 +451,60 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         height="100%"
         style={{ overflow: 'visible', pointerEvents: 'none' }}
       >
-        {visibleCountries.map((c) => {
-          const info = getCountryInfo(c.id)
-          const displayName = info?.name ?? c.name
+        {visibleCountries.flatMap((c) => {
           const isSelected = selectedId === c.id
-          return (
-            <text
-              key={c.id}
-              ref={(el) => {
-                if (!el) return
-                const data = dataRef.current.get(c.id)
-                if (data) data.text = el
-              }}
-              x="0"
-              y="0"
-              textAnchor="middle"
-              fontFamily="Georgia, serif"
-              fontWeight={600}
-              fill={isSelected ? '#fde68a' : 'rgba(255, 245, 220, 0.95)'}
-              stroke="rgba(0, 0, 0, 0.85)"
-              strokeWidth={3}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              paintOrder="stroke fill"
-              letterSpacing="0.5"
-              style={{ display: 'none' }}
-            >
-              <textPath
+          const lines = Array.from({ length: MAX_LABEL_LINES }, (_, i) => (
+            <g key={`line-${c.id}-${i}`}>
+              <path
+                id={`spine-${c.id}-${i}`}
                 ref={(el) => {
                   if (!el) return
                   const data = dataRef.current.get(c.id)
-                  if (data) data.textPathEl = el
+                  if (data) data.paths[i] = el
                 }}
-                href={`#spine-${c.id}`}
-                startOffset="50%"
+                d=""
+                fill="none"
+                stroke="none"
+              />
+              <text
+                ref={(el) => {
+                  if (!el) return
+                  const data = dataRef.current.get(c.id)
+                  if (data) data.texts[i] = el
+                }}
+                x="0"
+                y="0"
                 textAnchor="middle"
+                fontFamily="Georgia, serif"
+                fontWeight={600}
+                fill={isSelected ? '#fde68a' : 'rgba(255, 245, 220, 0.95)'}
+                stroke="rgba(0, 0, 0, 0.85)"
+                strokeWidth={3}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                paintOrder="stroke fill"
+                letterSpacing="0.5"
+                style={{ display: 'none' }}
               >
-                {displayName}
-              </textPath>
-            </text>
-          )
+                <textPath
+                  ref={(el) => {
+                    if (!el) return
+                    const data = dataRef.current.get(c.id)
+                    if (data) data.textPathEls[i] = el
+                  }}
+                  href={`#spine-${c.id}-${i}`}
+                  startOffset="50%"
+                  textAnchor="middle"
+                />
+              </text>
+            </g>
+          ))
+          return lines
         })}
-        {visibleCountries.map((c) => (
-          <path
-            key={`path-${c.id}`}
-            id={`spine-${c.id}`}
-            ref={(el) => {
-              if (!el) return
-              const data = dataRef.current.get(c.id)
-              if (data) data.pathEl = el
-            }}
-            d=""
-            fill="none"
-            stroke="none"
-          />
-        ))}
       </svg>
 
       {visibleCountries.map((c) => {
         const info = getCountryInfo(c.id)
-        const displayName = info?.name ?? c.name
         const capital = info?.capital
         const isSelected = selectedId === c.id
         return (
@@ -395,9 +520,13 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                 const spine = getCountrySpine(c, 24)
                 data = {
                   div: el,
-                  text: null,
-                  textPathEl: null,
-                  pathEl: null,
+                  capitalEl: null,
+                  texts: Array.from({ length: MAX_LABEL_LINES }, () => null),
+                  textPathEls: Array.from({ length: MAX_LABEL_LINES }, () => null),
+                  paths: Array.from({ length: MAX_LABEL_LINES }, () => null),
+                  pointLineEls: Array.from({ length: MAX_LABEL_LINES }, () => null),
+                  lastLines: [],
+                  country: c,
                   displayName: info?.name ?? c.name,
                   shortName: info?.shortName,
                   capital: info?.capital,
@@ -406,20 +535,20 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                   boundsHeight: bounds.height,
                   spineWorld: spine,
                   aspect: bounds.height > 0 ? bounds.width / bounds.height : 1,
-                  lastRenderName: info?.name ?? c.name,
                   lastMode: '',
                   lastEligible: '',
                   lastSpineLen: '',
                   lastAspect: '',
                   lastFontSize: '',
                   lastRenderNameAttr: '',
+                  lastCapitalVisible: '',
                 }
                 dataRef.current.set(c.id, data)
               } else {
                 data.div = el
               }
             }}
-            className="absolute font-medium text-center whitespace-nowrap"
+            className="absolute font-medium text-center"
             style={{
               transform: 'translate(-50%, -50%)',
               fontFamily: 'Georgia, serif',
@@ -430,9 +559,31 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
               display: 'none',
             }}
           >
-            <div data-country-name style={{ fontWeight: 600 }}>{displayName}</div>
+            <div data-country-name style={{ fontWeight: 600 }}>
+              {Array.from({ length: MAX_LABEL_LINES }, (_, i) => (
+                <div
+                  key={`point-line-${i}`}
+                  ref={(el) => {
+                    if (!el) return
+                    const data = dataRef.current.get(c.id)
+                    if (data) data.pointLineEls[i] = el
+                  }}
+                  style={{ display: 'none' }}
+                />
+              ))}
+            </div>
             {capital && layer === 'unified' && (
-              <div style={{ fontSize: '0.65em', opacity: 0.7, fontStyle: 'italic' }}>★ {capital}</div>
+              <div
+                data-capital
+                ref={(el) => {
+                  if (!el) return
+                  const data = dataRef.current.get(c.id)
+                  if (data) data.capitalEl = el
+                }}
+                style={{ fontSize: '0.65em', opacity: 0.7, fontStyle: 'italic', display: 'none' }}
+              >
+                ★ {capital}
+              </div>
             )}
           </div>
         )
