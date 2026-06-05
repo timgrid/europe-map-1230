@@ -6,6 +6,7 @@ import {
   createExtrudedGeometry,
   createEdgeGeometry,
   getCountryBounds,
+  getInteriorPoint,
   type CountryGeometry,
 } from '../src/utils/geoParser'
 import type { ProcessedData } from '../src/utils/dataLoader'
@@ -299,5 +300,149 @@ describe('getCountryBounds', () => {
     const bounds = getCountryBounds(geom)
     expect(bounds.width).toBe(0)
     expect(bounds.height).toBe(0)
+  })
+})
+
+describe('getInteriorPoint', () => {
+  function ringContains(ring: number[][], x: number, y: number, holes: number[][][] = []): boolean {
+    let inside = false
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1]
+      const xj = ring[j][0], yj = ring[j][1]
+      if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi || 1e-12) + xi)) {
+        inside = !inside
+      }
+    }
+    for (const h of holes) {
+      let hIn = false
+      for (let i = 0, j = h.length - 1; i < h.length; j = i++) {
+        const xi = h[i][0], yi = h[i][1]
+        const xj = h[j][0], yj = h[j][1]
+        if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi || 1e-12) + xi)) {
+          hIn = !hIn
+        }
+      }
+      if (hIn) return false
+    }
+    return inside
+  }
+
+  it('returns centroid for convex square', () => {
+    const data = makeData({
+      countries: [
+        { id: 'sq', name: 'Sq', color: '#000', center: [0, 0], polygons: [squarePolygon(0, 0, 10)] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(p.x).toBeCloseTo(0, 1)
+    expect(p.y).toBeCloseTo(0, 1)
+  })
+
+  it('returns point inside convex rectangle', () => {
+    const data = makeData({
+      countries: [
+        { id: 'r', name: 'R', color: '#000', center: [5, 0], polygons: [squarePolygon(5, 0, 20)] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(p.x).toBeCloseTo(5, 1)
+    expect(p.y).toBeCloseTo(0, 1)
+  })
+
+  it('finds interior point for C-shape (centroid is outside)', () => {
+    const cShape: number[][] = [
+      [0, 0], [10, 0], [10, 4], [4, 4], [4, 6], [10, 6], [10, 10], [0, 10], [0, 0],
+    ]
+    const data = makeData({
+      countries: [
+        { id: 'c', name: 'C', color: '#000', center: [5, 5], polygons: [{ outer: cShape, holes: [] }] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(ringContains(cShape, p.x, p.y)).toBe(true)
+    expect(p.x).toBeGreaterThan(0.5)
+    expect(p.x).toBeLessThan(3.5)
+  })
+
+  it('finds interior point for L-shape (centroid outside)', () => {
+    const lShape: number[][] = [
+      [0, 0], [10, 0], [10, 4], [4, 4], [4, 10], [0, 10], [0, 0],
+    ]
+    const data = makeData({
+      countries: [
+        { id: 'l', name: 'L', color: '#000', center: [5, 5], polygons: [{ outer: lShape, holes: [] }] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(ringContains(lShape, p.x, p.y)).toBe(true)
+  })
+
+  it('avoids holes when computing interior point', () => {
+    const donut: number[][] = [
+      [0, 0], [10, 0], [10, 10], [0, 10], [0, 0],
+    ]
+    const hole: number[][] = [
+      [3, 3], [7, 3], [7, 7], [3, 7], [3, 3],
+    ]
+    const data = makeData({
+      countries: [
+        { id: 'd', name: 'D', color: '#000', center: [5, 5], polygons: [{ outer: donut, holes: [hole] }] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(ringContains(donut, p.x, p.y, [hole])).toBe(true)
+    expect(p.x === 5 && p.y === 5).toBe(false)
+  })
+
+  it('returns point inside for non-convex England-like shape', () => {
+    const england: number[][] = [
+      [-3, 0], [3, 0], [4, 1], [4, 3], [2, 4], [-1, 3], [-2, 1], [-3, 0],
+    ]
+    const data = makeData({
+      countries: [
+        { id: 'england', name: 'England', color: '#000', center: [0.5, 0.5], polygons: [{ outer: england, holes: [] }] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(ringContains(england, p.x, p.y)).toBe(true)
+  })
+
+  it('uses largest polygon for multi-polygon country', () => {
+    const data = makeData({
+      countries: [
+        {
+          id: 'multi',
+          name: 'Multi',
+          color: '#000',
+          center: [0, 0],
+          polygons: [
+            squarePolygon(-100, -100, 2),
+            squarePolygon(0, 0, 10),
+          ],
+        },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(p.x).toBeCloseTo(0, 1)
+    expect(p.y).toBeCloseTo(0, 1)
+  })
+
+  it('falls back to country.center for empty shape', () => {
+    const data = makeData({
+      countries: [
+        { id: 'e', name: 'E', color: '#000', center: [7, 9], polygons: [{ outer: [], holes: [] }] },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const p = getInteriorPoint(geom)
+    expect(p.x).toBe(7)
+    expect(p.y).toBe(9)
   })
 })

@@ -2,11 +2,12 @@
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
-import { getCountryBounds, type CountryGeometry } from '../utils/geoParser'
+import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize } from '../utils/projection'
 import {
   estimateLabelBox,
+  resolveLabelOverlaps,
   type LabelBox,
 } from '../utils/labelLayout'
 import { useMapStore } from '../store'
@@ -76,9 +77,10 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
       if (data) {
         const info = getCountryInfo(c.id)
         const bounds = getCountryBounds(c)
+        const interior = getInteriorPoint(c)
         data.displayName = info?.name ?? c.name
         data.capital = info?.capital
-        data.center = new THREE.Vector3(c.center.x, 0.5, -c.center.y)
+        data.center = new THREE.Vector3(interior.x, 0.5, -interior.y)
         data.boundsWidth = bounds.width
       }
     }
@@ -124,9 +126,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             fontSize,
           })
         }
-        const visibility = new Map<string, boolean>(candidates.map((c) => [c._id, true]))
-        let visibleCount = 0
-        let firstCand: LabelCandidate | null = null
+        const visibility = resolveLabelOverlaps(candidates)
         for (const [id, data] of dataRef.current) {
           const el = data.div
           if (!el) continue
@@ -141,22 +141,10 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             el.style.display = 'none'
             continue
           }
-          visibleCount++
-          if (!firstCand) firstCand = cand
           el.style.display = ''
           el.style.left = `${cand.x}px`
           el.style.top = `${cand.y}px`
           el.style.fontSize = `${cand.fontSize}px`
-        }
-        const hud = document.getElementById('overlay-hud')
-        if (hud) {
-          const samples = candidates.slice(0, 3).map((c) =>
-            `${c._id}@${c.x.toFixed(0)},${c.y.toFixed(0)} p=${c.priority.toFixed(0)} w=${c.width.toFixed(0)}`,
-          ).join(' | ')
-          const sample = candidates.length > 0
-            ? ` | top:[${samples}]`
-            : ''
-          hud.textContent = `v=${cameraSnapshot.version} | data=${dataRef.current.size} | cand=${candidates.length} | vis=${visibleCount} | vp=${cameraSnapshot.viewportWidth.toFixed(0)}x${cameraSnapshot.viewportHeight.toFixed(0)} | fov=${cameraSnapshot.fov.toFixed(1)}${sample}`
         }
       }
       raf = requestAnimationFrame(tick)
@@ -185,11 +173,12 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                 // First mount: create entry so RAF loop can use it
                 const info = getCountryInfo(c.id)
                 const bounds = getCountryBounds(c)
+                const interior = getInteriorPoint(c)
                 data = {
                   div: el,
                   displayName: info?.name ?? c.name,
                   capital: info?.capital,
-                  center: new THREE.Vector3(c.center.x, 0.5, -c.center.y),
+                  center: new THREE.Vector3(interior.x, 0.5, -interior.y),
                   boundsWidth: bounds.width,
                 }
                 dataRef.current.set(c.id, data)
