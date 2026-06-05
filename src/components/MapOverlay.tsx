@@ -124,6 +124,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         }
         const visibility = resolveLabelOverlaps(candidates)
         let visibleCount = 0
+        let firstCand: LabelCandidate | null = null
         for (const [id, data] of dataRef.current) {
           const el = data.div
           if (!el) continue
@@ -139,6 +140,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             continue
           }
           visibleCount++
+          if (!firstCand) firstCand = cand
           el.style.display = ''
           el.style.left = `${cand.x}px`
           el.style.top = `${cand.y}px`
@@ -146,7 +148,11 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         }
         const hud = document.getElementById('overlay-hud')
         if (hud) {
-          hud.textContent = `v=${cameraSnapshot.version} | data=${dataRef.current.size} | cand=${candidates.length} | vis=${visibleCount} | viewport=${cameraSnapshot.viewportWidth.toFixed(0)}x${cameraSnapshot.viewportHeight.toFixed(0)} | fov=${cameraSnapshot.fov.toFixed(1)}`
+          const fc = firstCand
+          const sample = fc
+            ? ` | first=${fc._id}@${fc.x.toFixed(0)},${fc.y.toFixed(0)} fs=${fc.fontSize}px w=${fc.width.toFixed(0)}`
+            : ''
+          hud.textContent = `v=${cameraSnapshot.version} | data=${dataRef.current.size} | cand=${candidates.length} | vis=${visibleCount} | vp=${cameraSnapshot.viewportWidth.toFixed(0)}x${cameraSnapshot.viewportHeight.toFixed(0)} | fov=${cameraSnapshot.fov.toFixed(1)}${sample}`
         }
       }
       raf = requestAnimationFrame(tick)
@@ -159,7 +165,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
   }, [])
 
   return (
-    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
+    <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 9999 }}>
       {visibleCountries.map((c) => {
         const info = getCountryInfo(c.id)
         const displayName = info?.name ?? c.name
