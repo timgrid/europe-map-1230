@@ -1,5 +1,4 @@
 // Purpose: spine (главная ось) полигона страны для рендера подписей в стиле EU4 (text-along-path) | convex hull + rotating calipers + sample
-// Note: smoothing helper (smoothPoints) оставлен для будущей интеграции со straight skeleton; diameter уже прямая линия, smoothing не нужен
 import { largestPolygon, type CountryGeometry } from './geoParser'
 
 export interface SpinePoint {
@@ -118,6 +117,8 @@ function smoothPoints(points: SpinePoint[], window = 3): SpinePoint[] {
   }
   return out
 }
+
+export { smoothPoints }
 
 export function getCountrySpine(country: CountryGeometry, samples = 24): SpinePoint[] {
   const poly = largestPolygon(country)
