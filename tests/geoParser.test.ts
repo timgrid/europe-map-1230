@@ -5,6 +5,7 @@ import {
   getMapCenter,
   createExtrudedGeometry,
   createEdgeGeometry,
+  getCountryBounds,
   type CountryGeometry,
 } from '../src/utils/geoParser'
 import type { ProcessedData } from '../src/utils/dataLoader'
@@ -228,6 +229,7 @@ describe('createEdgeGeometry', () => {
     shape.moveTo(0, 0)
     shape.lineTo(10, 0)
     shape.lineTo(10, 10)
+    shape.lineTo(0, 10)
     shape.closePath()
     const geom = createEdgeGeometry(shape)
     const pos = geom.getAttribute('position') as THREE.BufferAttribute
@@ -238,5 +240,64 @@ describe('createEdgeGeometry', () => {
     expect(first.x).toBeCloseTo(last.x)
     expect(first.y).toBeCloseTo(last.y)
     geom.dispose()
+  })
+})
+
+describe('getCountryBounds', () => {
+  it('returns bounding box of all shape points', () => {
+    const data = makeData({
+      countries: [
+        {
+          id: 'box',
+          name: 'Box',
+          color: '#000',
+          center: [0, 0],
+          polygons: [squarePolygon(0, 0, 10)],  // 10x10 square
+        },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const bounds = getCountryBounds(geom)
+    expect(bounds.width).toBeCloseTo(10, 5)
+    expect(bounds.height).toBeCloseTo(10, 5)
+  })
+
+  it('handles multi-polygon countries (uses union of points)', () => {
+    const data = makeData({
+      countries: [
+        {
+          id: 'multi',
+          name: 'Multi',
+          color: '#000',
+          center: [0, 0],
+          polygons: [
+            squarePolygon(-10, -10, 4),  // 4x4 at (-10,-10)
+            squarePolygon(10, 10, 4),    // 4x4 at (10,10)
+          ],
+        },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const bounds = getCountryBounds(geom)
+    expect(bounds.width).toBeCloseTo(24, 5)  // -12 to 12
+    expect(bounds.height).toBeCloseTo(24, 5)
+  })
+
+  it('returns 0x0 for country with no shapes', () => {
+    const data = makeData({
+      countries: [
+        {
+          id: 'empty',
+          name: 'Empty',
+          color: '#000',
+          center: [0, 0],
+          polygons: [{ outer: [], holes: [] }],
+        },
+      ],
+    })
+    const geom = parseEuropeGeoJSON(data)[0]!
+    const bounds = getCountryBounds(geom)
+    expect(bounds.width).toBe(0)
+    expect(bounds.height).toBe(0)
   })
 })

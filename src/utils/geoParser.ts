@@ -80,3 +80,18 @@ export function createEdgeGeometry(shape: THREE.Shape): THREE.BufferGeometry {
   }
   return new THREE.BufferGeometry().setFromPoints(vectors)
 }
+
+export function getCountryBounds(country: CountryGeometry): { width: number; height: number } {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const shape of country.shapes) {
+    const pts = shape.getPoints(1)
+    for (const p of pts) {
+      if (p.x < minX) minX = p.x
+      if (p.x > maxX) maxX = p.x
+      if (p.y < minY) minY = p.y
+      if (p.y > maxY) maxY = p.y
+    }
+  }
+  if (!Number.isFinite(minX)) return { width: 0, height: 0 }
+  return { width: maxX - minX, height: maxY - minY }
+}
