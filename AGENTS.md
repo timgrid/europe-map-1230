@@ -35,7 +35,7 @@ GitHub Pages + Telegram Mini App.
 npm ci              # установка зависимостей (запускает husky init)
 npm run dev         # dev-сервер с HMR
 npm run build       # tsc -b && vite build → dist/
-npm test            # vitest run (61 тест, ~0.8s)
+npm test            # vitest run (79 тестов, ~0.7s)
 npm run test:watch  # vitest в режиме watch
 npm run test:coverage
 npm run lint        # eslint
@@ -58,11 +58,12 @@ europe-map-1230/
 ├── scripts/
 │   └── process-geojson.cjs  # build-time препроцессинг
 ├── src/
-│   ├── components/        # React-компоненты (UI/, MapScene, CountryMesh, TelegramBackButton)
+│   ├── components/        # React-компоненты (UI/, MapScene, CountryMesh, MapOverlay, CameraBridge, CameraRig, TelegramBackButton)
 │   ├── data/              # статические словари (countryMetadata.ts)
 │   ├── hooks/             # useDeviceType, useTelegram
+│   ├── state/             # shared mutable refs (cameraState.ts — мост между Canvas и DOM-оверлеем)
 │   ├── store.ts           # Zustand state
-│   ├── utils/             # dataLoader, geoParser, telegram
+│   ├── utils/             # dataLoader, geoParser, camera, projection, telegram
 │   ├── App.tsx            # корневой компонент
 │   └── main.tsx
 ├── tests/                 # vitest (adr, commits, geoParser)
@@ -149,19 +150,20 @@ europe-map-1230/
 - Размер JSON-данных: ≤150 КБ на год (текущее: 100-145 КБ).
 - Время `JSON.parse` + `THREE.Shape` конструктор: ≤500мс на десктопе.
 - FCP (First Contentful Paint): ≤2с на 3G.
-- Bundle size: текущий 1.27 МБ (357 КБ gzip) — допустимо, но `dist/assets/index-*.js` уже
+- Bundle size: текущий 1.36 МБ (377 КБ gzip) — допустимо, но `dist/assets/index-*.js` уже
   >500 КБ → Vite warning. Не добавляй тяжёлые зависимости без code-splitting.
 
 ## Тестовая инфраструктура
 
 - `tests/adr.test.ts` — 7 тестов структуры ADR
 - `tests/commits.test.ts` — 3 теста (commitlint config + hook + история с cutoff `9f7ca3d`)
-- `tests/geoParser.test.ts` — 12 тестов геометрии
+- `tests/geoParser.test.ts` — 15 тестов геометрии + getCountryBounds
 - `tests/camera.test.ts` — 15 тестов расчёта камеры (getMapSize, getInitialCameraConfig)
+- `tests/projection.test.ts` — 15 тестов (projectWorldToScreen + getLabelFontSize с гистерезисом)
 - `tests/schema.test.ts` — 7 тестов Zod-валидации
 - `tests/telegram.test.ts` — 17 тестов TG-утилит (parseSDKVersion, isFullscreenSupported, etc.)
 - `vitest.config.ts` — Node environment, coverage на `src/utils/**` и `src/data/**`
-- Husky `pre-commit` запускает `npm test` (~0.8s)
+- Husky `pre-commit` запускает `npm test` (~0.7s, 79 тестов)
 
 ## Где что искать
 
@@ -170,8 +172,9 @@ europe-map-1230/
 | Список годов | `src/components/UI/YearToggle.tsx` |
 | Цвета и алиасы стран | `scripts/process-geojson.cjs` (colorMap, commonAliases) |
 | Русские описания стран | `src/data/countryMetadata.ts` |
-| Подписи на карте | `src/components/MapScene.tsx` (labelCountries) |
+| Подписи на карте (2D HTML) | `src/components/MapOverlay.tsx` (whitelist + RAF-loop, читает cameraSnapshot) |
 | Камера / свет | `src/App.tsx` + `src/utils/camera.ts` (getInitialCameraConfig) + `src/components/CameraRig.tsx` |
+| Мост Canvas → DOM (camera state) | `src/components/CameraBridge.tsx` + `src/state/cameraState.ts` |
 | Данные конкретного года | `public/data/processed/europe_<year>.json` |
 | Исходник (gitignored) | `public/world_<year>.geojson` |
 | Почему так, а не иначе | `docs/adr/` |

@@ -11,6 +11,8 @@ import LoadingScreen from './components/UI/LoadingScreen'
 import ControlsHint from './components/UI/ControlsHint'
 import FullscreenButton from './components/UI/FullscreenButton'
 import CameraRig from './components/CameraRig'
+import CameraBridge from './components/CameraBridge'
+import MapOverlay from './components/MapOverlay'
 import { useMapStore } from './store'
 import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
@@ -184,6 +186,7 @@ function App() {
         frameloop={isActive ? 'demand' : 'never'}
       >
         <CameraRig position={cameraPosition} target={worldCenter} fov={CAMERA_FOV} />
+        <CameraBridge />
 
         <fog attach="fog" args={['#0a1628', 500, 1200]} />
 
@@ -229,6 +232,8 @@ function App() {
           makeDefault
         />
       </Canvas>
+
+      {countries.length > 0 && <MapOverlay countries={countries} />}
 
       <TelegramBackButton />
       <FullscreenButton />

@@ -1,7 +1,6 @@
-// Purpose: 3D-сцена — водная плоскость, страны (CountryMesh), подписи (CountryLabel)
+// Purpose: 3D-сцена — водная плоскость + страны (CountryMesh) | подписи вынесены в 2D MapOverlay (sibling Canvas)
 import type { CountryGeometry } from '../utils/geoParser'
 import CountryMesh from './CountryMesh'
-import CountryLabel from './CountryLabel'
 import { useMapStore } from '../store'
 
 interface MapSceneProps {
@@ -33,11 +32,6 @@ export default function MapScene({ countries }: MapSceneProps) {
       {/* Countries */}
       {countries.map((country) => (
         <CountryMesh key={country.id} country={country} layer={layer} />
-      ))}
-
-      {/* Country labels (Russian name + capital) */}
-      {countries.map((country) => (
-        <CountryLabel key={`label-${country.id}`} country={country} layer={layer} />
       ))}
     </group>
   )

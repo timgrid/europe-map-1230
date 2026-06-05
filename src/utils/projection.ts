@@ -34,13 +34,14 @@ export function projectWorldToScreen(
   camera: THREE.Camera,
   viewport: Viewport,
 ): ProjectionResult {
+  const persp = camera as THREE.PerspectiveCamera
   _v.copy(worldPos).project(camera)
   const x = (_v.x * 0.5 + 0.5) * viewport.width
   const y = (-_v.y * 0.5 + 0.5) * viewport.height
   const visible = _v.z > -1 && _v.z < 1
 
   const distance = camera.position.distanceTo(worldPos)
-  const fovRad = (camera.fov * Math.PI) / 180
+  const fovRad = (persp.fov * Math.PI) / 180
   const worldHeightAtPoint = 2 * distance * Math.tan(fovRad / 2)
   const worldUnitsPerPixel = worldHeightAtPoint / Math.max(1, viewport.height)
 
