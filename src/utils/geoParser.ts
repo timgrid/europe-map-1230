@@ -136,7 +136,7 @@ function ringArea(ring: number[][]): number {
   return Math.abs(a) / 2
 }
 
-function largestPolygon(country: CountryGeometry): { outer: number[][]; holes: number[][][] } | null {
+export function largestPolygon(country: CountryGeometry): { outer: number[][]; holes: number[][][] } | null {
   let best: { outer: number[][]; holes: number[][][] } | null = null
   let bestArea = 0
   for (const shape of country.shapes) {
