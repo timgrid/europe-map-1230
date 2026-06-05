@@ -1,5 +1,5 @@
 // Purpose: 2D HTML/SVG-оверлей для подписей стран | проецирует центры и spine через cameraSnapshot, считает fontSize (LOD с гистерезисом), решает пересечения для point-label, рендерит SVG textPath для крупных вытянутых стран (EU4-style), динамически выбирает shortName когда полное имя не помещается
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
@@ -13,6 +13,11 @@ import {
 } from '../utils/labelLayout'
 import { pickFittingName } from '../utils/fittingName'
 import { useMapStore } from '../store'
+import {
+  classifyLabelMode,
+  isSpineEligible,
+  setAttrIfChanged,
+} from '../utils/overlayPipeline'
 
 const DETAILED_LABEL_IDS = new Set([
   'england', 'france', 'holy_roman_empire', 'poland', 'hungary', 'castile', 'aragon', 'portugal', 'spain',
@@ -43,9 +48,6 @@ const UNIFIED_LABEL_IDS = new Set([
   'vijayanagara', 'mongol_empire',
 ])
 
-const TEXTPATH_MIN_SCREEN_PX = 80
-const TEXTPATH_MIN_ASPECT = 1.3
-
 interface LabelData {
   div: HTMLDivElement | null
   text: SVGTextElement | null
@@ -60,6 +62,13 @@ interface LabelData {
   spineWorld: SpinePoint[]
   aspect: number
   lastRenderName: string
+  // last data-* attr values (to avoid DOM thrashing via setAttribute every frame)
+  lastMode: string
+  lastEligible: string
+  lastSpineLen: string
+  lastAspect: string
+  lastFontSize: string
+  lastRenderNameAttr: string
 }
 
 interface LabelCandidate extends LabelBox {
@@ -84,9 +93,16 @@ function buildPathD(points: Array<{ x: number; y: number }>): string {
 export default function MapOverlay({ countries }: MapOverlayProps) {
   const layer = useMapStore((s) => s.layer)
   const selectedId = useMapStore((s) => s.selectedCountry?.id ?? null)
-  const whitelist = layer === 'unified' ? UNIFIED_LABEL_IDS : DETAILED_LABEL_IDS
 
-  const visibleCountries = countries.filter((c) => whitelist.has(c.id))
+  const whitelist = useMemo(
+    () => (layer === 'unified' ? UNIFIED_LABEL_IDS : DETAILED_LABEL_IDS),
+    [layer],
+  )
+
+  const visibleCountries = useMemo(
+    () => countries.filter((c) => whitelist.has(c.id)),
+    [countries, whitelist],
+  )
 
   const dataRef = useRef<Map<string, LabelData>>(new Map())
   const wasVisibleRef = useRef<Map<string, boolean>>(new Map())
@@ -137,19 +153,45 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           width: cameraSnapshot.viewportWidth,
           height: cameraSnapshot.viewportHeight,
         }
-        const candidates: LabelCandidate[] = []
+
+        // PASS 1: determine render mode for every country BEFORE overlap resolution.
+        // textPath-eligible countries do NOT participate in point-label overlap
+        // resolution (they sit horizontally along their spine and don't actually
+        // conflict with vertical point labels of other countries).
+        const modeById = new Map<string, 'textpath' | 'point' | 'hidden'>()
+        const screenSpineById = new Map<string, ReturnType<typeof buildScreenSpine>>()
         for (const [id, data] of dataRef.current) {
+          const screenSpine = buildScreenSpine(data.spineWorld, camera, viewport)
+          screenSpineById.set(id, screenSpine)
+          const eligible = isSpineEligible({
+            visibleCount: screenSpine.visibleCount,
+            screenLen: screenSpine.screenLen,
+            aspect: data.aspect,
+          })
+          const centerVisible = projectWorldToScreen(data.center, camera, viewport).visible
+          modeById.set(id, classifyLabelMode(centerVisible, eligible))
+        }
+
+        // PASS 2: build candidates ONLY for point-mode countries and resolve overlaps.
+        const pointCandidates: LabelCandidate[] = []
+        for (const [id, data] of dataRef.current) {
+          if (modeById.get(id) !== 'point') continue
           const wasVisible = wasVisibleRef.current.get(id) ?? false
           const proj = projectWorldToScreen(data.center, camera, viewport)
-          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible, layerRef.current)
-          if (fontSize === null || !proj.visible) continue
+          const fontSize = getLabelFontSize(
+            data.boundsWidth,
+            proj.worldUnitsPerPixel,
+            wasVisible,
+            layerRef.current,
+          )
+          if (fontSize === null) continue
           const box = estimateLabelBox({
             id,
             displayName: data.displayName,
             capital: data.capital,
             fontSize,
           })
-          candidates.push({
+          pointCandidates.push({
             _id: id,
             x: proj.x,
             y: proj.y,
@@ -161,8 +203,10 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             worldUnitsPerPixel: proj.worldUnitsPerPixel,
           })
         }
-        const visibility = resolveLabelOverlaps(candidates)
+        const visibility = resolveLabelOverlaps(pointCandidates)
+        const candidateById = new Map(pointCandidates.map((c) => [c._id, c]))
 
+        // PASS 3: render by mode + set data-* attrs (only on change to avoid thrash).
         for (const [id, data] of dataRef.current) {
           const divEl = data.div
           const textEl = data.text
@@ -170,47 +214,69 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           const pathEl = data.pathEl
           if (!divEl) continue
 
-          const show = visibility.get(id) ?? false
+          const mode = modeById.get(id) ?? 'hidden'
+          const screenSpine = screenSpineById.get(id)!
+          const cand = candidateById.get(id)
+          const eligible = isSpineEligible({
+            visibleCount: screenSpine.visibleCount,
+            screenLen: screenSpine.screenLen,
+            aspect: data.aspect,
+          })
+          const isTextPath = mode === 'textpath'
+          const isPoint = mode === 'point'
+          const show = isTextPath ? true : isPoint ? (visibility.get(id) ?? false) : false
           wasVisibleRef.current.set(id, show)
+
+          // data-* attrs (DevTools inspection)
+          setAttrIfChanged(divEl, 'data-mode', mode, { value: data.lastMode })
+          data.lastMode = mode
+          setAttrIfChanged(divEl, 'data-eligible', String(eligible), { value: data.lastEligible })
+          data.lastEligible = String(eligible)
+          setAttrIfChanged(divEl, 'data-spine-len', Math.round(screenSpine.screenLen).toString(), { value: data.lastSpineLen })
+          data.lastSpineLen = Math.round(screenSpine.screenLen).toString()
+          setAttrIfChanged(divEl, 'data-aspect', data.aspect.toFixed(2), { value: data.lastAspect })
+          data.lastAspect = data.aspect.toFixed(2)
+
           if (!show) {
             divEl.style.display = 'none'
             if (textEl) textEl.style.display = 'none'
+            setAttrIfChanged(divEl, 'data-fontsize', '', { value: data.lastFontSize })
+            data.lastFontSize = ''
+            setAttrIfChanged(divEl, 'data-render-name', '', { value: data.lastRenderNameAttr })
+            data.lastRenderNameAttr = ''
             continue
           }
 
-          const { readable, screenLen, visibleCount } = buildScreenSpine(data.spineWorld, camera, viewport)
-
-          const cand = candidates.find((c) => c._id === id)
-          const pointFontSize = cand?.fontSize ?? 14
-          const eligible =
-            visibleCount >= 2 &&
-            screenLen >= TEXTPATH_MIN_SCREEN_PX &&
-            data.aspect >= TEXTPATH_MIN_ASPECT
-
-          if (eligible && textEl && textPathEl && pathEl) {
+          if (isTextPath && textEl && textPathEl && pathEl) {
+            const screenLen = screenSpine.screenLen
             const textPathFontSize = getTextPathFontSize(screenLen) ?? 11
-            const renderName = pickFittingName(data.displayName, data.shortName, screenLen, textPathFontSize, undefined)
+            const renderName = pickFittingName(
+              data.displayName,
+              data.shortName,
+              screenLen,
+              textPathFontSize,
+              undefined,
+            )
             if (renderName !== data.lastRenderName) {
               textPathEl.textContent = renderName
               data.lastRenderName = renderName
             }
-            const d = buildPathD(readable)
+            const d = buildPathD(screenSpine.readable)
             pathEl.setAttribute('d', d)
             textEl.setAttribute('font-size', String(textPathFontSize))
             textEl.style.display = ''
             divEl.style.display = 'none'
-          } else {
-            if (!cand) {
-              divEl.style.display = 'none'
-              if (textEl) textEl.style.display = 'none'
-              continue
-            }
+            setAttrIfChanged(divEl, 'data-fontsize', String(textPathFontSize), { value: data.lastFontSize })
+            data.lastFontSize = String(textPathFontSize)
+            setAttrIfChanged(divEl, 'data-render-name', renderName, { value: data.lastRenderNameAttr })
+            data.lastRenderNameAttr = renderName
+          } else if (isPoint && cand) {
             const countryScreenWidth = data.boundsWidth / cand.worldUnitsPerPixel
             const renderName = pickFittingName(
               data.displayName,
               data.shortName,
               countryScreenWidth,
-              pointFontSize,
+              cand.fontSize,
               data.capital,
             )
             if (renderName !== data.lastRenderName) {
@@ -223,6 +289,17 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             divEl.style.top = `${cand.y}px`
             divEl.style.fontSize = `${cand.fontSize}px`
             if (textEl) textEl.style.display = 'none'
+            setAttrIfChanged(divEl, 'data-fontsize', String(cand.fontSize), { value: data.lastFontSize })
+            data.lastFontSize = String(cand.fontSize)
+            setAttrIfChanged(divEl, 'data-render-name', renderName, { value: data.lastRenderNameAttr })
+            data.lastRenderNameAttr = renderName
+          } else {
+            divEl.style.display = 'none'
+            if (textEl) textEl.style.display = 'none'
+            setAttrIfChanged(divEl, 'data-fontsize', '', { value: data.lastFontSize })
+            data.lastFontSize = ''
+            setAttrIfChanged(divEl, 'data-render-name', '', { value: data.lastRenderNameAttr })
+            data.lastRenderNameAttr = ''
           }
         }
       }
@@ -330,6 +407,12 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                   spineWorld: spine,
                   aspect: bounds.height > 0 ? bounds.width / bounds.height : 1,
                   lastRenderName: info?.name ?? c.name,
+                  lastMode: '',
+                  lastEligible: '',
+                  lastSpineLen: '',
+                  lastAspect: '',
+                  lastFontSize: '',
+                  lastRenderNameAttr: '',
                 }
                 dataRef.current.set(c.id, data)
               } else {
