@@ -69,3 +69,16 @@ export function getLabelFontSize(
   const target = countryWidthPx * ratio
   return Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, target))
 }
+
+// EU4-style font size for SVG textPath mode.
+// Targets ~15 pixels of text per 1 pixel of font size — a 100px spine
+// yields a ~6.7px font, a 150px spine ~10px, 330px spine ~22px (capped).
+const TEXTPATH_FONT_DIVISOR = 15
+const TEXTPATH_FONT_MIN = MIN_FONT_PX
+const TEXTPATH_FONT_MAX = MAX_FONT_PX
+
+export function getTextPathFontSize(screenSpineLengthPx: number): number | null {
+  if (screenSpineLengthPx <= 0) return null
+  const target = screenSpineLengthPx / TEXTPATH_FONT_DIVISOR
+  return Math.max(TEXTPATH_FONT_MIN, Math.min(TEXTPATH_FONT_MAX, target))
+}

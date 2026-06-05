@@ -229,6 +229,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   papal_states: {
     id: 'papal_states',
     name: 'Папская область',
+    shortName: 'Папство',
     capital: 'Рим',
     ruler: 'Папа Иннокентий III',
     governmentType: 'Теократия',
@@ -241,6 +242,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   sicily: {
     id: 'sicily',
     name: 'Сицилийское королевство',
+    shortName: 'Сицилия',
     capital: 'Палермо',
     ruler: 'Фридрих II',
     governmentType: 'Феодальная монархия',
@@ -266,6 +268,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   genoa: {
     id: 'genoa',
     name: 'Генуэзская республика',
+    shortName: 'Генуя',
     capital: 'Генуя',
     ruler: 'Консул',
     governmentType: 'Олигархическая республика',
@@ -428,6 +431,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   other_rus_principalities: {
     id: 'other_rus_principalities',
     name: 'Русские княжества',
+    shortName: 'Русь',
     capital: 'Разные (Владимир, Новгород, Киев)',
     ruler: 'Разные князья',
     governmentType: 'Феодальная раздробленность',
@@ -517,6 +521,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   rum: {
     id: 'rum',
     name: 'Румский султанат',
+    shortName: 'Рум',
     capital: 'Конья',
     ruler: 'Кей-Кубад I',
     governmentType: 'Султанат',
@@ -529,6 +534,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   cumania: {
     id: 'cumania',
     name: 'Половецкие степи',
+    shortName: 'Половцы',
     capital: 'Номадский',
     ruler: 'Кончак',
     governmentType: 'Кочевое ханство',
@@ -629,6 +635,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   jerusalem: {
     id: 'jerusalem',
     name: 'Иерусалимское королевство',
+    shortName: 'Иерусалим',
     capital: 'Акра',
     ruler: 'Амальрих II',
     governmentType: 'Феодальная монархия',
@@ -641,6 +648,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   antioch: {
     id: 'antioch',
     name: 'Княжество Антиохия',
+    shortName: 'Антиохия',
     capital: 'Антиохия',
     ruler: 'Боэмунд III',
     governmentType: 'Феодальная монархия',
@@ -653,6 +661,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   tripoli: {
     id: 'tripoli',
     name: 'Графство Триполи',
+    shortName: 'Триполи',
     capital: 'Триполи',
     ruler: 'Граф',
     governmentType: 'Феодальная монархия',
@@ -665,6 +674,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   latin_empire: {
     id: 'latin_empire',
     name: 'Латинская империя',
+    shortName: 'Лат. Империя',
     capital: 'Константинополь',
     ruler: 'Балдуин I',
     governmentType: 'Феодальная монархия',
@@ -691,6 +701,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   teutonic_order: {
     id: 'teutonic_order',
     name: 'Тевтонский орден',
+    shortName: 'Тевтоны',
     capital: 'Мариенбург',
     ruler: 'Великий магистр',
     governmentType: 'Теократическая монархия',
@@ -754,6 +765,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   berber_tribes: {
     id: 'berber_tribes',
     name: 'Берберские племена',
+    shortName: 'Берберы',
     capital: '',
     ruler: 'Вожди племён',
     governmentType: 'Племенной союз',
@@ -790,6 +802,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   volga_bulgaria: {
     id: 'volga_bulgaria',
     name: 'Волжская Булгария',
+    shortName: 'Булгария',
     capital: 'Булгар',
     ruler: 'Эмир',
     governmentType: 'Феодальная монархия',
@@ -802,6 +815,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   finno_ugric_tribes: {
     id: 'finno_ugric_tribes',
     name: 'Финно-угорские племена',
+    shortName: 'Финно-угры',
     capital: '',
     ruler: 'Вожди',
     governmentType: 'Племенной союз',
@@ -828,6 +842,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   novgorod: {
     id: 'novgorod',
     name: 'Новгородская республика',
+    shortName: 'Новгород',
     capital: 'Великий Новгород',
     ruler: 'Посадник/Князь',
     governmentType: 'Боярская республика',
@@ -840,6 +855,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   ryazan: {
     id: 'ryazan',
     name: 'Рязанское княжество',
+    shortName: 'Рязань',
     capital: 'Рязань',
     ruler: 'Князь',
     governmentType: 'Феодальное княжество',
@@ -852,6 +868,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   trebizond: {
     id: 'trebizond',
     name: 'Трапезундская империя',
+    shortName: 'Трапезунд',
     capital: 'Трапезунд',
     ruler: 'Император',
     governmentType: 'Абсолютная монархия',
@@ -864,6 +881,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   ilkhanate: {
     id: 'ilkhanate',
     name: 'Государство Хулагуидов',
+    shortName: 'Хулагуиды',
     capital: 'Тебриз/Марага',
     ruler: 'Ильхан',
     governmentType: 'Монгольская империя',
@@ -889,6 +907,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   granada: {
     id: 'granada',
     name: 'Гранадский эмират',
+    shortName: 'Гранада',
     capital: 'Гранада',
     ruler: 'Эмир',
     governmentType: 'Феодальная монархия',
@@ -950,6 +969,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   siberians: {
     id: 'siberians',
     name: 'Сибирские племена',
+    shortName: 'Сибирь',
     capital: '',
     ruler: 'Вожди',
     governmentType: 'Племенной союз',
@@ -1003,6 +1023,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   crimean_khanate: {
     id: 'crimean_khanate',
     name: 'Крымское ханство',
+    shortName: 'Крым',
     capital: 'Бахчисарай',
     ruler: 'Хан (Гирей)',
     governmentType: 'Монархия',
@@ -1015,6 +1036,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   khanate_of_sibir: {
     id: 'khanate_of_sibir',
     name: 'Сибирское ханство',
+    shortName: 'Сибирь',
     capital: 'Кашлык (Искер)',
     ruler: 'Хан (Тайбугин)',
     governmentType: 'Монархия',
@@ -1052,6 +1074,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   poland_lithuania: {
     id: 'poland_lithuania',
     name: 'Польско-Литовское государство',
+    shortName: 'Польша-Литва',
     capital: 'Краков',
     ruler: 'Король (Ягеллон)',
     governmentType: 'Дуалистическая монархия',
@@ -1064,6 +1087,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   swiss_confederation: {
     id: 'swiss_confederation',
     name: 'Швейцарская конфедерация',
+    shortName: 'Швейцария',
     capital: '',
     ruler: 'Совет кантонов',
     governmentType: 'Конфедерация',
@@ -1076,6 +1100,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   republic_of_the_seven_zenden: {
     id: 'republic_of_the_seven_zenden',
     name: 'Республика Семи Ценд',
+    shortName: 'Семь Ценд',
     capital: '',
     ruler: 'Совет',
     governmentType: 'Олигархическая республика',
@@ -1101,6 +1126,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   moldova: {
     id: 'moldova',
     name: 'Молдавское княжество',
+    shortName: 'Молдавия',
     capital: 'Сучава',
     ruler: 'Воевода',
     governmentType: 'Феодальная монархия',
@@ -1137,6 +1163,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   savoy: {
     id: 'savoy',
     name: 'Савойское герцогство',
+    shortName: 'Савойя',
     capital: 'Шамбери',
     ruler: 'Герцог Савойский',
     governmentType: 'Феодальное герцогство',
@@ -1173,6 +1200,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   kalmar_union: {
     id: 'kalmar_union',
     name: 'Кальмарская уния',
+    shortName: 'Кальмар',
     capital: 'Копенгаген',
     ruler: 'Король',
     governmentType: 'Персональная уния',
@@ -1185,6 +1213,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   timurid_empire: {
     id: 'timurid_empire',
     name: 'Империя Тимуридов',
+    shortName: 'Тимуриды',
     capital: 'Герат, Самарканд',
     ruler: 'Эмир/Хан',
     governmentType: 'Монархия',
@@ -1212,6 +1241,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   east_francia: {
     id: 'east_francia',
     name: 'Восточно-Франкское королевство',
+    shortName: 'Вост. Франкия',
     capital: 'Регенсбург',
     ruler: 'Людовик IV Дитя (Луитпольд)',
     governmentType: 'Королевство',
@@ -1224,6 +1254,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   west_francia: {
     id: 'west_francia',
     name: 'Западно-Франкское королевство',
+    shortName: 'Зап. Франкия',
     capital: 'Париж',
     ruler: 'Карл III Простоватый',
     governmentType: 'Королевство',
@@ -1236,6 +1267,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   rus_khaganate: {
     id: 'rus_khaganate',
     name: 'Русский каганат',
+    shortName: 'Русский каганат',
     capital: 'Киев (?)',
     ruler: 'Каган (титул)',
     governmentType: 'Каганат',
@@ -1248,6 +1280,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   khazars: {
     id: 'khazars',
     name: 'Хазарский каганат',
+    shortName: 'Хазары',
     capital: 'Итиль',
     ruler: 'Каган',
     governmentType: 'Каганат',
@@ -1260,6 +1293,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   avars: {
     id: 'avars',
     name: 'Аварский каганат',
+    shortName: 'Авары',
     capital: 'Карнунт (?)',
     ruler: 'Каган',
     governmentType: 'Каганат',
@@ -1272,6 +1306,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   lombard_duchies: {
     id: 'lombard_duchies',
     name: 'Лангобардские герцогства',
+    shortName: 'Лангобарды',
     capital: 'Сполето, Беневенто',
     ruler: 'Герцоги',
     governmentType: 'Герцогства',
@@ -1284,6 +1319,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   magyars: {
     id: 'magyars',
     name: 'Мадьярские племена',
+    shortName: 'Мадьяры',
     capital: 'Этелькёз (Леведия)',
     ruler: 'Вожди (князья)',
     governmentType: 'Племенной союз',
@@ -1296,6 +1332,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   great_moravia: {
     id: 'great_moravia',
     name: 'Великая Моравия',
+    shortName: 'Моравия',
     capital: 'Велиград (Микульчице)',
     ruler: 'Моймир II / Святополк I',
     governmentType: 'Княжество',
@@ -1308,6 +1345,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   slavonic_tribes: {
     id: 'slavonic_tribes',
     name: 'Славянские племена',
+    shortName: 'Славяне',
     capital: '—',
     ruler: 'Вожди (князья)',
     governmentType: 'Племенные союзы',
@@ -1332,6 +1370,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   finns: {
     id: 'finns',
     name: 'Финские племена (суоми)',
+    shortName: 'Суоми',
     capital: '—',
     ruler: 'Вожди',
     governmentType: 'Племенные союзы',
@@ -1344,6 +1383,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   karelians: {
     id: 'karelians',
     name: 'Карельские племена',
+    shortName: 'Карелы',
     capital: '—',
     ruler: 'Вожди',
     governmentType: 'Племенные союзы',
@@ -1380,6 +1420,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   chelmia: {
     id: 'chelmia',
     name: 'Хельмские племена (хельмяне)',
+    shortName: 'Хельмяне',
     capital: '—',
     ruler: 'Вожди',
     governmentType: 'Племенной союз',
@@ -1392,6 +1433,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   kurs: {
     id: 'kurs',
     name: 'Куршские племена',
+    shortName: 'Курши',
     capital: '—',
     ruler: 'Вожди',
     governmentType: 'Племенной союз',
@@ -1428,6 +1470,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   asturias: {
     id: 'asturias',
     name: 'Астурийское королевство',
+    shortName: 'Астурия',
     capital: 'Овьедо',
     ruler: 'Альфонсо II',
     governmentType: 'Королевство',
@@ -1453,6 +1496,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   samanid_empire: {
     id: 'samanid_empire',
     name: 'Саманидское государство',
+    shortName: 'Саманиды',
     capital: 'Бухара',
     ruler: 'Эмир',
     governmentType: 'Эмират',
@@ -1478,6 +1522,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   icelandic_commonwealth: {
     id: 'icelandic_commonwealth',
     name: 'Исландская республика',
+    shortName: 'Исландия',
     capital: 'Тингвеллир (Альтинг)',
     ruler: 'Законоговоритель (lögsögumaðr)',
     governmentType: 'Республика',
@@ -1505,6 +1550,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   japan_warring_states: {
     id: 'japan_warring_states',
     name: 'Япония (Сэнгоку)',
+    shortName: 'Сэнгоку',
     capital: 'Киото (номинальный)',
     ruler: 'Сёгун (Мори/Асикага — упадок)',
     governmentType: 'Сёгунат (фактически анархия)',
@@ -1517,6 +1563,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   vijayanagara: {
     id: 'vijayanagara',
     name: 'Империя Виджаянагара',
+    shortName: 'Виджаянагар',
     capital: 'Виджаянагара',
     ruler: 'Раджа',
     governmentType: 'Империя',
@@ -1529,6 +1576,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   bengal: {
     id: 'bengal',
     name: 'Бенгальский султанат',
+    shortName: 'Бенгалия',
     capital: 'Дакка (Гаур)',
     ruler: 'Султан',
     governmentType: 'Султанат',
@@ -1541,6 +1589,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   ahmadnagar: {
     id: 'ahmadnagar',
     name: 'Султанат Ахмаднагар',
+    shortName: 'Ахмаднагар',
     capital: 'Ахмаднагар',
     ruler: 'Султан',
     governmentType: 'Султанат',
@@ -1565,6 +1614,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   bijapur: {
     id: 'bijapur',
     name: 'Султанат Биджапур',
+    shortName: 'Биджапур',
     capital: 'Биджапур',
     ruler: 'Адил-шах',
     governmentType: 'Султанат',
@@ -1577,6 +1627,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   golkonda: {
     id: 'golkonda',
     name: 'Султанат Голконда',
+    shortName: 'Голконда',
     capital: 'Голконда (Хайдарабад)',
     ruler: 'Кутб-шах',
     governmentType: 'Султанат',

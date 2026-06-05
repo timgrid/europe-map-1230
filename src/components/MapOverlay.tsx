@@ -5,7 +5,7 @@ import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
 import { getCountrySpine, ensureReadableDirection, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
-import { projectWorldToScreen, getLabelFontSize } from '../utils/projection'
+import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../utils/projection'
 import {
   estimateLabelBox,
   resolveLabelOverlaps,
@@ -193,19 +193,20 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           }
 
           const cand = candidates.find((c) => c._id === id)
-          const fontSize = cand?.fontSize ?? 14
+          const pointFontSize = cand?.fontSize ?? 14
           const eligible = screenLen >= TEXTPATH_MIN_SCREEN_PX && data.aspect >= TEXTPATH_MIN_ASPECT
 
           if (eligible && textEl && textPathEl && pathEl) {
             data.modeRef = 'textpath'
-            const renderName = pickFittingName(data.displayName, data.shortName, screenLen, fontSize, undefined)
+            const textPathFontSize = getTextPathFontSize(screenLen) ?? 11
+            const renderName = pickFittingName(data.displayName, data.shortName, screenLen, textPathFontSize, undefined)
             if (renderName !== data.lastRenderName) {
               textPathEl.textContent = renderName
               data.lastRenderName = renderName
             }
             const d = buildPathD(readable)
             pathEl.setAttribute('d', d)
-            textEl.setAttribute('font-size', String(fontSize))
+            textEl.setAttribute('font-size', String(textPathFontSize))
             textEl.style.display = ''
             divEl.style.display = 'none'
           } else {
@@ -220,7 +221,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
               data.displayName,
               data.shortName,
               countryScreenWidth,
-              fontSize,
+              pointFontSize,
               data.capital,
             )
             if (renderName !== data.lastRenderName) {

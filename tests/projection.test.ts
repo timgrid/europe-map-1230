@@ -1,7 +1,7 @@
 // Purpose: тесты проецирования 3D-точки в screen-space + расчёта fontSize с гистерезисом
 import { describe, it, expect } from 'vitest'
 import * as THREE from 'three'
-import { projectWorldToScreen, getLabelFontSize } from '../src/utils/projection'
+import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../src/utils/projection'
 
 function makeCamera(fov = 20, position = new THREE.Vector3(0, 700, 140)): THREE.PerspectiveCamera {
   const cam = new THREE.PerspectiveCamera(fov, 16 / 9, 0.1, 2000)
@@ -119,5 +119,67 @@ describe('getLabelFontSize', () => {
     const unified = getLabelFontSize(30, wupp, false, 'unified')    // 60*0.24 = 14.4
     expect(detailed).toBe(18)
     expect(unified).toBeCloseTo(14.4, 5)
+  })
+})
+
+describe('getTextPathFontSize', () => {
+  it('returns null for zero or negative spine length', () => {
+    expect(getTextPathFontSize(0)).toBeNull()
+    expect(getTextPathFontSize(-10)).toBeNull()
+  })
+
+  it('clamps to MIN (11) for very short spine', () => {
+    // 80 / 15 = 5.33 → clamp 11
+    expect(getTextPathFontSize(80)).toBe(11)
+  })
+
+  it('at exactly MIN boundary (165px) returns MIN', () => {
+    // 165 / 15 = 11 → exactly MIN
+    expect(getTextPathFontSize(165)).toBe(11)
+  })
+
+  it('scales linearly in the middle range', () => {
+    // 300 / 15 = 20
+    expect(getTextPathFontSize(300)).toBe(20)
+  })
+
+  it('clamps to MAX (22) for very long spine', () => {
+    // 500 / 15 = 33.33 → clamp 22
+    expect(getTextPathFontSize(500)).toBe(22)
+  })
+
+  it('at exactly MAX boundary (330px) returns MAX', () => {
+    // 330 / 15 = 22 → exactly MAX
+    expect(getTextPathFontSize(330)).toBe(22)
+  })
+
+  it('EU4 typical case: cumania spine ~200px → 13px', () => {
+    // 200 / 15 = 13.33 → 13
+    expect(getTextPathFontSize(200)).toBeCloseTo(13.33, 2)
+  })
+
+  it('EU4 typical case: HRE spine ~350px → clamped MAX 22', () => {
+    expect(getTextPathFontSize(350)).toBe(22)
+  })
+
+  it('EU4 typical case: France spine ~250px → 16.67px', () => {
+    expect(getTextPathFontSize(250)).toBeCloseTo(16.67, 2)
+  })
+
+  it('output never below MIN even for tiny input', () => {
+    expect(getTextPathFontSize(1)).toBe(11)
+  })
+
+  it('output never above MAX even for huge input', () => {
+    expect(getTextPathFontSize(10000)).toBe(22)
+  })
+
+  it('monotonically non-decreasing', () => {
+    let prev = getTextPathFontSize(1)!
+    for (let px = 50; px <= 1000; px += 10) {
+      const cur = getTextPathFontSize(px)!
+      expect(cur).toBeGreaterThanOrEqual(prev)
+      prev = cur
+    }
   })
 })
