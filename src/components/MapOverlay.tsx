@@ -6,7 +6,6 @@ import { getCountryBounds, type CountryGeometry } from '../utils/geoParser'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize } from '../utils/projection'
 import {
-  resolveLabelOverlaps,
   estimateLabelBox,
   type LabelBox,
 } from '../utils/labelLayout'
@@ -122,7 +121,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             fontSize,
           })
         }
-        const visibility = resolveLabelOverlaps(candidates)
+        const visibility = new Map<string, boolean>(candidates.map((c) => [c._id, true]))
         let visibleCount = 0
         let firstCand: LabelCandidate | null = null
         for (const [id, data] of dataRef.current) {
@@ -148,9 +147,11 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         }
         const hud = document.getElementById('overlay-hud')
         if (hud) {
-          const fc = firstCand
-          const sample = fc
-            ? ` | first=${fc._id}@${fc.x.toFixed(0)},${fc.y.toFixed(0)} fs=${fc.fontSize}px w=${fc.width.toFixed(0)}`
+          const samples = candidates.slice(0, 3).map((c) =>
+            `${c._id}@${c.x.toFixed(0)},${c.y.toFixed(0)} p=${c.priority.toFixed(0)} w=${c.width.toFixed(0)}`,
+          ).join(' | ')
+          const sample = candidates.length > 0
+            ? ` | top:[${samples}]`
             : ''
           hud.textContent = `v=${cameraSnapshot.version} | data=${dataRef.current.size} | cand=${candidates.length} | vis=${visibleCount} | vp=${cameraSnapshot.viewportWidth.toFixed(0)}x${cameraSnapshot.viewportHeight.toFixed(0)} | fov=${cameraSnapshot.fov.toFixed(1)}${sample}`
         }
