@@ -6,7 +6,7 @@
 ## Проект
 
 **europe-map-1230** — интерактивная 3D-карта Европы для веба в стиле EU4/EU5. Показывает политические
-границы за годы **1200, 1279, 1300, 1400, 1492, 1500, 1530**. React + Three.js, русский UI, деплой на
+границы за годы **800, 900, 1000, 1100, 1200, 1279, 1300, 1400, 1492, 1500, 1530, 1600**. React + Three.js, русский UI, деплой на
 GitHub Pages + Telegram Mini App.
 
 - Live: https://timgrid.github.io/europe-map-1230/
@@ -35,7 +35,7 @@ GitHub Pages + Telegram Mini App.
 npm ci              # установка зависимостей (запускает husky init)
 npm run dev         # dev-сервер с HMR
 npm run build       # tsc -b && vite build → dist/
-npm test            # vitest run (95 тестов, ~0.8s)
+npm test            # vitest run (220 тестов, ~0.7s)
 npm run test:watch  # vitest в режиме watch
 npm run test:coverage
 npm run lint        # eslint
@@ -150,7 +150,7 @@ europe-map-1230/
 - Размер JSON-данных: ≤150 КБ на год (текущее: 100-145 КБ).
 - Время `JSON.parse` + `THREE.Shape` конструктор: ≤500мс на десктопе.
 - FCP (First Contentful Paint): ≤2с на 3G.
-- Bundle size: initial 1.19 МБ (323 КБ gzip) + lazy 175 КБ (55 КБ gzip) для R3F-сцены.
+- Bundle size: initial 1.20 МБ (327 КБ gzip) + lazy 175 КБ (55 КБ gzip) для R3F-сцены.
   Three.js + drei вынесены в `MapCanvas` через `React.lazy` + `<Suspense>` —
   initial bundle уменьшился на ~54 КБ gzip. FCP улучшен.
 
@@ -158,14 +158,18 @@ europe-map-1230/
 
 - `tests/adr.test.ts` — 7 тестов структуры ADR
 - `tests/commits.test.ts` — 3 теста (commitlint config + hook + история с cutoff `9f7ca3d`)
-- `tests/geoParser.test.ts` — 15 тестов геометрии + getCountryBounds
+- `tests/geoParser.test.ts` — 23 теста (геометрия + getCountryBounds + getInteriorPoint)
+- `tests/spine.test.ts` — 44 теста (convex hull, rotating calipers, getCountrySpine, ensureReadableDirection, spineScreenLength, buildScreenSpine, hasSharpSpineTurn)
 - `tests/camera.test.ts` — 15 тестов расчёта камеры (getMapSize, getInitialCameraConfig)
-- `tests/projection.test.ts` — 15 тестов (projectWorldToScreen + getLabelFontSize с гистерезисом)
+- `tests/projection.test.ts` — 29 тестов (projectWorldToScreen + getLabelFontSize + getTextPathFontSize)
 - `tests/labelLayout.test.ts` — 16 тестов (estimateLabelBox, boxesIntersect, resolveLabelOverlaps с бонусом стабильности)
+- `tests/overlay.test.ts` — 7 тестов (pickFittingName)
+- `tests/overlayPipeline.test.ts` — 16 тестов (classifyLabelMode, isSpineEligible, setAttrIfChanged)
+- `tests/textPathWrap.test.ts` — 36 тестов (wrapBalanced, getLineOffsets, shiftSpineByNormal, isSpineInsidePolygon, shouldUseMultiLine, getTextPathSpineOffset)
 - `tests/schema.test.ts` — 7 тестов Zod-валидации
 - `tests/telegram.test.ts` — 17 тестов TG-утилит (parseSDKVersion, isFullscreenSupported, etc.)
 - `vitest.config.ts` — Node environment, coverage на `src/utils/**` и `src/data/**`
-- Husky `pre-commit` запускает `npm test` (~0.8s, 95 тестов)
+- Husky `pre-commit` запускает `npm test` (~0.7s, 220 тестов)
 
 ## Где что искать
 
