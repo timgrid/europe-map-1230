@@ -7,6 +7,8 @@ import {
   ensureReadableDirection,
   buildScreenSpine,
   spineScreenLength,
+  hasSharpSpineTurn,
+  SPINE_MAX_TURN_DEG,
   type SpinePoint,
 } from '../src/utils/spine'
 import { parseEuropeGeoJSON, type CountryGeometry } from '../src/utils/geoParser'
@@ -270,6 +272,89 @@ describe('spineScreenLength', () => {
 
   it('returns positive length for horizontal path', () => {
     expect(spineScreenLength([{ x: 0, y: 5 }, { x: 100, y: 5 }])).toBe(100)
+  })
+})
+
+describe('hasSharpSpineTurn', () => {
+  it('returns false for arrays shorter than 3', () => {
+    expect(hasSharpSpineTurn([])).toBe(false)
+    expect(hasSharpSpineTurn([{ x: 0, y: 0 }])).toBe(false)
+    expect(hasSharpSpineTurn([{ x: 0, y: 0 }, { x: 1, y: 1 }])).toBe(false)
+  })
+
+  it('returns false for a perfectly straight horizontal path', () => {
+    const pts = [
+      { x: 0, y: 5 }, { x: 25, y: 5 }, { x: 50, y: 5 }, { x: 75, y: 5 }, { x: 100, y: 5 },
+    ]
+    expect(hasSharpSpineTurn(pts)).toBe(false)
+  })
+
+  it('returns false for a perfectly straight vertical path', () => {
+    const pts = [
+      { x: 10, y: 0 }, { x: 10, y: 25 }, { x: 10, y: 50 }, { x: 10, y: 75 },
+    ]
+    expect(hasSharpSpineTurn(pts)).toBe(false)
+  })
+
+  it('returns false for gentle curve (within tolerance)', () => {
+    // each segment turns ~10° from the previous — within default 30° threshold
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 195, y: 17 },
+      { x: 270, y: 70 },
+    ]
+    expect(hasSharpSpineTurn(pts)).toBe(false)
+  })
+
+  it('returns true for sharp 90° turn', () => {
+    // bend like an "L"
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 50 },
+      { x: 100, y: 100 },
+    ]
+    expect(hasSharpSpineTurn(pts)).toBe(true)
+  })
+
+  it('returns true for U-turn (180° reversal)', () => {
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 100, y: 0 },
+      { x: 50, y: 0 },
+      { x: 0, y: 0 },
+    ]
+    expect(hasSharpSpineTurn(pts)).toBe(true)
+  })
+
+  it('respects custom maxDeg threshold', () => {
+    // 45° turn at midpoint
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 170.7, y: 70.7 },
+      { x: 200, y: 170.7 },
+    ]
+    expect(hasSharpSpineTurn(pts, 30)).toBe(true)
+    expect(hasSharpSpineTurn(pts, 60)).toBe(false)
+  })
+
+  it('exports SPINE_MAX_TURN_DEG = 30 (matches EU4-style)', () => {
+    expect(SPINE_MAX_TURN_DEG).toBe(30)
+  })
+
+  it('ignores degenerate segments (length ~ 0)', () => {
+    // consecutive duplicates should not trigger a sharp turn
+    const pts = [
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 50, y: 0 },
+      { x: 100, y: 0 },
+    ]
+    expect(hasSharpSpineTurn(pts)).toBe(false)
   })
 })
 

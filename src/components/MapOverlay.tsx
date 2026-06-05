@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
-import { getCountrySpine, buildScreenSpine, ensureReadableDirection, type SpinePoint } from '../utils/spine'
+import { getCountrySpine, buildScreenSpine, ensureReadableDirection, hasSharpSpineTurn, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../utils/projection'
 import {
@@ -339,11 +339,14 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         for (const [id, data] of dataRef.current) {
           const screenSpine = buildScreenSpine(data.spineWorld, camera, viewport)
           screenSpineById.set(id, screenSpine)
-          const eligible = isSpineEligible({
+          const baseEligible = isSpineEligible({
             visibleCount: screenSpine.visibleCount,
             screenLen: screenSpine.screenLen,
             aspect: data.aspect,
           })
+          // text-max-angle guard: отбраковываем textPath со слишком резкими
+          // поворотами (для будущих curved spines; текущая прямая всегда проходит).
+          const eligible = baseEligible && !hasSharpSpineTurn(screenSpine.readable)
           const centerVisible = projectWorldToScreen(data.center, camera, viewport).visible
           modeById.set(id, classifyLabelMode(centerVisible, eligible))
         }

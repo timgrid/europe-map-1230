@@ -131,6 +131,60 @@ export function spineScreenLength(screenPoints: Array<{ x: number; y: number }>)
 }
 
 /**
+ * Максимальный угол поворота между соседними сегментами spine, при превышении
+ * которого textPath отбраковывается (fallback на point-label). Соответствует
+ * `text-max-angle` в Mapbox/MapLibre style spec.
+ *
+ * Слишком резкие повороты делают подпись нечитаемой: символы наслаиваются
+ * друг на друга или выходят за пределы страны.
+ */
+export const SPINE_MAX_TURN_DEG = 30
+
+/**
+ * Проверяет, есть ли в screen-space spine хотя бы один «острый» поворот —
+ * угол между соседними сегментами превышает `maxDeg`.
+ *
+ * @param screenPoints — проекция spine на экран (длина ≥ 3)
+ * @param maxDeg       — порог угла поворота в градусах (по умолчанию 30°)
+ * @returns true если найден хоть один резкий поворот
+ *
+ * Угол = 180° означает прямую линию. Угол 0° — разворот на 180° (u-turn).
+ * При maxDeg=30° spine с разворотом > 150° между сегментами отбраковывается.
+ *
+ * Защитная утилита: текущая `getCountrySpine` всегда возвращает прямую
+ * (diameter of convex hull), поэтому в проде функция возвращает false.
+ * Реальная польза появится при переходе на curved spine (straight skeleton,
+ * medial axis) — резкие изгибы (f-образные страны, Греция, Норвегия) будут
+ * автоматически fallback-нуты на point-label.
+ */
+export function hasSharpSpineTurn(
+  screenPoints: Array<{ x: number; y: number }>,
+  maxDeg: number = SPINE_MAX_TURN_DEG,
+): boolean {
+  if (screenPoints.length < 3) return false
+  const maxTurn = (maxDeg * Math.PI) / 180
+  const minCos = Math.cos(maxTurn)
+  for (let i = 1; i < screenPoints.length - 1; i++) {
+    const a = screenPoints[i - 1]!
+    const b = screenPoints[i]!
+    const c = screenPoints[i + 1]!
+    const v1x = b.x - a.x
+    const v1y = b.y - a.y
+    const v2x = c.x - b.x
+    const v2y = c.y - b.y
+    const len1 = Math.hypot(v1x, v1y)
+    const len2 = Math.hypot(v2x, v2y)
+    if (len1 < 1e-6 || len2 < 1e-6) continue
+    const cos = (v1x * v2x + v1y * v2y) / (len1 * len2)
+    const clamped = Math.max(-1, Math.min(1, cos))
+    // cos(0°) = 1 (прямая) → НЕ sharp; cos(180°) = -1 (U-turn) → sharp.
+    // Порог: если cos < minCos(maxTurn) → turn > maxDeg → sharp.
+    if (clamped < minCos) return true
+  }
+  return false
+}
+
+/**
  * Reverses screen-space path so text reads left-to-right at midpoint.
  * SVG textPath follows path direction — if tangent.x at midpoint < 0,
  * the text would render upside down. Returns the same points (or reversed).
