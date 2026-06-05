@@ -496,7 +496,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 paintOrder="stroke fill"
-                letterSpacing="0.5"
+                letterSpacing="0.7"
                 style={{ display: 'none' }}
               >
                 <textPath
@@ -567,7 +567,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
               fontFamily: 'Georgia, serif',
               textShadow: '0 2px 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.7)',
               color: isSelected ? '#fde68a' : 'rgba(255, 245, 220, 0.95)',
-              letterSpacing: '0.3px',
+              letterSpacing: '0.4px',
               lineHeight: 1.15,
               display: 'none',
             }}
