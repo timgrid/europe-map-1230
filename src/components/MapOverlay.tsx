@@ -69,21 +69,24 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
   const lastVersionRef = useRef(-1)
 
   useEffect(() => {
-    const map = new Map<string, LabelData>()
+    // Update data for existing entries (ref callback creates entries on first mount).
+    // Don't replace the Map — that would wipe the `div` refs that ref callback just set.
     for (const c of visibleCountries) {
-      const info = getCountryInfo(c.id)
-      const bounds = getCountryBounds(c)
-      const center = new THREE.Vector3(c.center.x, 0.5, -c.center.y)
-      const prev = dataRef.current.get(c.id)
-      map.set(c.id, {
-        div: prev?.div ?? null,
-        displayName: info?.name ?? c.name,
-        capital: info?.capital,
-        center,
-        boundsWidth: bounds.width,
-      })
+      const data = dataRef.current.get(c.id)
+      if (data) {
+        const info = getCountryInfo(c.id)
+        const bounds = getCountryBounds(c)
+        data.displayName = info?.name ?? c.name
+        data.capital = info?.capital
+        data.center = new THREE.Vector3(c.center.x, 0.5, -c.center.y)
+        data.boundsWidth = bounds.width
+      }
     }
-    dataRef.current = map
+    // Remove entries for countries no longer visible
+    const visibleIds = new Set(visibleCountries.map((c) => c.id))
+    for (const id of dataRef.current.keys()) {
+      if (!visibleIds.has(id)) dataRef.current.delete(id)
+    }
   }, [visibleCountries])
 
   useEffect(() => {
@@ -176,8 +179,23 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           <div
             key={c.id}
             ref={(el) => {
-              const data = dataRef.current.get(c.id)
-              if (data) data.div = el
+              if (!el) return
+              let data = dataRef.current.get(c.id)
+              if (!data) {
+                // First mount: create entry so RAF loop can use it
+                const info = getCountryInfo(c.id)
+                const bounds = getCountryBounds(c)
+                data = {
+                  div: el,
+                  displayName: info?.name ?? c.name,
+                  capital: info?.capital,
+                  center: new THREE.Vector3(c.center.x, 0.5, -c.center.y),
+                  boundsWidth: bounds.width,
+                }
+                dataRef.current.set(c.id, data)
+              } else {
+                data.div = el
+              }
             }}
             className="absolute font-medium text-center whitespace-nowrap"
             style={{
