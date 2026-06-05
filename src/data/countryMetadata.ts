@@ -55,6 +55,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   france: {
     id: 'france',
     name: 'Французское королевство',
+    shortName: 'Франция',
     capital: 'Париж',
     ruler: 'Филипп II Август',
     governmentType: 'Феодальная монархия',
@@ -203,6 +204,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   holy_roman_empire: {
     id: 'holy_roman_empire',
     name: 'Священная Римская Империя',
+    shortName: 'С.Р.Империя',
     capital: 'Разные',
     ruler: 'Отто IV / Фридрих II',
     governmentType: 'Выборная монархия',
@@ -251,6 +253,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   venice: {
     id: 'venice',
     name: 'Венецианская республика',
+    shortName: 'Венеция',
     capital: 'Венеция',
     ruler: 'Энрико Дандоло (дож)',
     governmentType: 'Олигархическая республика',
@@ -451,6 +454,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   byzantine_empire: {
     id: 'byzantine_empire',
     name: 'Византийская империя',
+    shortName: 'Византия',
     capital: 'Константинополь',
     ruler: 'Алексей III Ангел',
     governmentType: 'Абсолютная монархия',
@@ -711,6 +715,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   celtic_kingdoms: {
     id: 'celtic_kingdoms',
     name: 'Кельтские королевства',
+    shortName: 'Кельты',
     capital: 'Разные',
     ruler: 'Вождь',
     governmentType: 'Племенная монархия',
@@ -871,6 +876,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   mamluke_sultanate: {
     id: 'mamluke_sultanate',
     name: 'Мамлюкский султанат',
+    shortName: 'Мамлюки',
     capital: 'Каир',
     ruler: 'Султан',
     governmentType: 'Абсолютная монархия',
@@ -895,6 +901,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   hafsid_caliphate: {
     id: 'hafsid_caliphate',
     name: 'Хафсидский халифат',
+    shortName: 'Хафсиды',
     capital: 'Тунис',
     ruler: 'Халиф',
     governmentType: 'Теократическая монархия',
@@ -957,6 +964,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   ottoman_empire: {
     id: 'ottoman_empire',
     name: 'Османская империя',
+    shortName: 'Османы',
     capital: 'Бурса (1300), Эдирне (1365), Константинополь (1453)',
     ruler: 'Султан',
     governmentType: 'Абсолютная монархия',
@@ -969,6 +977,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   grand_duchy_of_moscow: {
     id: 'grand_duchy_of_moscow',
     name: 'Великое княжество Московское',
+    shortName: 'Московия',
     capital: 'Москва',
     ruler: 'Великий князь',
     governmentType: 'Феодальная монархия',
@@ -981,6 +990,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   tsardom_of_muscovy: {
     id: 'tsardom_of_muscovy',
     name: 'Московское царство',
+    shortName: 'Московия',
     capital: 'Москва',
     ruler: 'Великий князь/Царь (с 1547)',
     governmentType: 'Самодержавная монархия',
@@ -1017,6 +1027,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   safavid_empire: {
     id: 'safavid_empire',
     name: 'Сефевидская империя',
+    shortName: 'Сефевиды',
     capital: 'Тебриз (1501), Казвин (1555), Исфахан (1598)',
     ruler: 'Шах (Сефевид)',
     governmentType: 'Абсолютная монархия',
@@ -1077,6 +1088,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   habsburg_netherlands: {
     id: 'habsburg_netherlands',
     name: 'Габсбургские Нидерланды',
+    shortName: 'Нидерланды',
     capital: 'Брюссель',
     ruler: 'Эрцгерцог',
     governmentType: 'Монархия под властью Габсбургов',
@@ -1187,6 +1199,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   carolingian_empire: {
     id: 'carolingian_empire',
     name: 'Каролингская империя',
+    shortName: 'Каролинги',
     capital: 'Аахен',
     ruler: 'Карл Великий (Шарлемань)',
     governmentType: 'Империя',
@@ -1427,6 +1440,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   seljuk_empire: {
     id: 'seljuk_empire',
     name: 'Сельджукская империя',
+    shortName: 'Сельджуки',
     capital: 'Исфахан',
     ruler: 'Султан',
     governmentType: 'Империя',
@@ -1451,6 +1465,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   mongols: {
     id: 'mongols',
     name: 'Монгольские племена',
+    shortName: 'Монголы',
     capital: '—',
     ruler: 'Хан',
     governmentType: 'Племенной союз',
@@ -1477,6 +1492,7 @@ export const countryMetadata: Record<string, CountryInfo> = {
   dutch_republic: {
     id: 'dutch_republic',
     name: 'Голландская республика',
+    shortName: 'Голландия',
     capital: 'Гаага (Амстердам)',
     ruler: 'Статхаутер (Вильгельм Оранский)',
     governmentType: 'Республика (Соединённые провинции)',

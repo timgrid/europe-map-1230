@@ -5,6 +5,7 @@ import { hapticSelection, hapticNotification } from './utils/telegram'
 export interface CountryInfo {
   id: string
   name: string
+  shortName?: string
   capital: string
   ruler: string
   governmentType: string

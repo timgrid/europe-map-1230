@@ -1,4 +1,4 @@
-// Purpose: 2D HTML/SVG-оверлей для подписей стран | проецирует центры и spine через cameraSnapshot, считает fontSize (LOD с гистерезисом), решает пересечения для point-label, рендерит SVG textPath для крупных вытянутых стран (EU4-style)
+// Purpose: 2D HTML/SVG-оверлей для подписей стран | проецирует центры и spine через cameraSnapshot, считает fontSize (LOD с гистерезисом), решает пересечения для point-label, рендерит SVG textPath для крупных вытянутых стран (EU4-style), динамически выбирает shortName когда полное имя не помещается
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
@@ -11,6 +11,7 @@ import {
   resolveLabelOverlaps,
   type LabelBox,
 } from '../utils/labelLayout'
+import { pickFittingName } from '../utils/fittingName'
 import { useMapStore } from '../store'
 
 const DETAILED_LABEL_IDS = new Set([
@@ -48,8 +49,10 @@ const TEXTPATH_MIN_ASPECT = 1.3
 interface LabelData {
   div: HTMLDivElement | null
   text: SVGTextElement | null
+  textPathEl: SVGTextPathElement | null
   pathEl: SVGPathElement | null
   displayName: string
+  shortName: string | undefined
   capital: string | undefined
   center: THREE.Vector3
   boundsWidth: number
@@ -57,11 +60,13 @@ interface LabelData {
   spineWorld: SpinePoint[]
   aspect: number
   modeRef: 'point' | 'textpath'
+  lastRenderName: string
 }
 
 interface LabelCandidate extends LabelBox {
   _id: string
   fontSize: number
+  worldUnitsPerPixel: number
 }
 
 interface MapOverlayProps {
@@ -105,12 +110,14 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         const interior = getInteriorPoint(c)
         const spine = getCountrySpine(c, 24)
         data.displayName = info?.name ?? c.name
+        data.shortName = info?.shortName
         data.capital = info?.capital
         data.center = new THREE.Vector3(interior.x, 0.5, -interior.y)
         data.boundsWidth = bounds.width
         data.boundsHeight = bounds.height
         data.spineWorld = spine
         data.aspect = bounds.height > 0 ? bounds.width / bounds.height : 1
+        data.lastRenderName = data.displayName
       }
     }
     const visibleIds = new Set(visibleCountries.map((c) => c.id))
@@ -153,6 +160,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             priority: data.boundsWidth * data.boundsWidth,
             wasVisible,
             fontSize,
+            worldUnitsPerPixel: proj.worldUnitsPerPixel,
           })
         }
         const visibility = resolveLabelOverlaps(candidates)
@@ -160,6 +168,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         for (const [id, data] of dataRef.current) {
           const divEl = data.div
           const textEl = data.text
+          const textPathEl = data.textPathEl
           const pathEl = data.pathEl
           if (!divEl) continue
 
@@ -183,23 +192,41 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             screenLen = spineScreenLength(readable)
           }
 
+          const cand = candidates.find((c) => c._id === id)
+          const fontSize = cand?.fontSize ?? 14
           const eligible = screenLen >= TEXTPATH_MIN_SCREEN_PX && data.aspect >= TEXTPATH_MIN_ASPECT
-          if (eligible && textEl && pathEl) {
+
+          if (eligible && textEl && textPathEl && pathEl) {
             data.modeRef = 'textpath'
+            const renderName = pickFittingName(data.displayName, data.shortName, screenLen, fontSize, undefined)
+            if (renderName !== data.lastRenderName) {
+              textPathEl.textContent = renderName
+              data.lastRenderName = renderName
+            }
             const d = buildPathD(readable)
             pathEl.setAttribute('d', d)
-            const cand = candidates.find((c) => c._id === id)
-            const fontSize = cand?.fontSize ?? 14
             textEl.setAttribute('font-size', String(fontSize))
             textEl.style.display = ''
             divEl.style.display = 'none'
           } else {
             data.modeRef = 'point'
-            const cand = candidates.find((c) => c._id === id)
             if (!cand) {
               divEl.style.display = 'none'
               if (textEl) textEl.style.display = 'none'
               continue
+            }
+            const countryScreenWidth = data.boundsWidth / cand.worldUnitsPerPixel
+            const renderName = pickFittingName(
+              data.displayName,
+              data.shortName,
+              countryScreenWidth,
+              fontSize,
+              data.capital,
+            )
+            if (renderName !== data.lastRenderName) {
+              const nameEl = divEl.querySelector<HTMLElement>('[data-country-name]')
+              if (nameEl) nameEl.textContent = renderName
+              data.lastRenderName = renderName
             }
             divEl.style.display = ''
             divEl.style.left = `${cand.x}px`
@@ -253,6 +280,11 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
               style={{ display: 'none' }}
             >
               <textPath
+                ref={(el) => {
+                  if (!el) return
+                  const data = dataRef.current.get(c.id)
+                  if (data) data.textPathEl = el
+                }}
                 href={`#spine-${c.id}`}
                 startOffset="50%"
                 textAnchor="middle"
@@ -298,8 +330,10 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                 data = {
                   div: el,
                   text: null,
+                  textPathEl: null,
                   pathEl: null,
                   displayName: info?.name ?? c.name,
+                  shortName: info?.shortName,
                   capital: info?.capital,
                   center: new THREE.Vector3(interior.x, 0.5, -interior.y),
                   boundsWidth: bounds.width,
@@ -307,6 +341,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                   spineWorld: spine,
                   aspect: bounds.height > 0 ? bounds.width / bounds.height : 1,
                   modeRef: 'point',
+                  lastRenderName: info?.name ?? c.name,
                 }
                 dataRef.current.set(c.id, data)
               } else {
@@ -324,7 +359,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
               display: 'none',
             }}
           >
-            <div style={{ fontWeight: 600 }}>{displayName}</div>
+            <div data-country-name style={{ fontWeight: 600 }}>{displayName}</div>
             {capital && layer === 'unified' && (
               <div style={{ fontSize: '0.65em', opacity: 0.7, fontStyle: 'italic' }}>★ {capital}</div>
             )}
