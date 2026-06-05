@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest'
+import * as THREE from 'three'
 import {
   convexHull,
   rotatingCalipersDiameter,
   getCountrySpine,
   ensureReadableDirection,
+  buildScreenSpine,
+  spineScreenLength,
+  type SpinePoint,
 } from '../src/utils/spine'
 import { parseEuropeGeoJSON, type CountryGeometry } from '../src/utils/geoParser'
 import type { ProcessedData } from '../src/utils/dataLoader'
@@ -245,5 +249,108 @@ describe('ensureReadableDirection', () => {
     const original = pts.slice()
     ensureReadableDirection(pts)
     expect(pts).toEqual(original)
+  })
+})
+
+describe('spineScreenLength', () => {
+  it('returns 0 for empty array', () => {
+    expect(spineScreenLength([])).toBe(0)
+  })
+
+  it('returns 0 for single point', () => {
+    expect(spineScreenLength([{ x: 0, y: 0 }])).toBe(0)
+  })
+
+  it('sums euclidean distance between consecutive points', () => {
+    // 3+4+5 = 12 (3-4-5 triangle across 3 segments)
+    expect(spineScreenLength([
+      { x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 4 }, { x: 3, y: 9 },
+    ])).toBeCloseTo(12, 5)
+  })
+
+  it('returns positive length for horizontal path', () => {
+    expect(spineScreenLength([{ x: 0, y: 5 }, { x: 100, y: 5 }])).toBe(100)
+  })
+})
+
+describe('buildScreenSpine', () => {
+  function makeCam(z = 100): THREE.PerspectiveCamera {
+    const cam = new THREE.PerspectiveCamera(20, 16 / 9, 0.1, 2000)
+    cam.position.set(0, 0, z)
+    cam.lookAt(0, 0, 0)
+    cam.updateMatrixWorld()
+    return cam
+  }
+
+  const viewport = { width: 1920, height: 1080 }
+
+  function makeSpine(n: number, xRange: [number, number] = [-50, 50]): SpinePoint[] {
+    const out: SpinePoint[] = []
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0.5 : i / (n - 1)
+      out.push({
+        x: xRange[0] + (xRange[1] - xRange[0]) * t,
+        y: 0,
+        tangentX: 1,
+        tangentY: 0,
+      })
+    }
+    return out
+  }
+
+  it('returns all visible points for a country in front of camera', () => {
+    const cam = makeCam(100)
+    const spine = makeSpine(10, [-30, 30])
+    const result = buildScreenSpine(spine, cam, viewport)
+    expect(result.visibleCount).toBe(10)
+    expect(result.readable.length).toBe(10)
+    expect(result.screenLen).toBeGreaterThan(0)
+  })
+
+  it('drops all points when camera is behind the country', () => {
+    // Country at z=0, camera at z=+100 looking at +z means country is "behind" camera (in world)
+    // But our convention: map is on XZ plane, world Y in our spine helper is negated (y -> -y becomes z=0.5)
+    // The function projects (x, 0.5, -y) to screen. If -y is large positive (z behind camera), points are invisible.
+    const cam = new THREE.PerspectiveCamera(20, 16 / 9, 0.1, 2000)
+    cam.position.set(0, 0, 100)
+    cam.lookAt(0, 0, 500)  // look away from country
+    cam.updateMatrixWorld()
+    const spine = makeSpine(5, [-10, 10])
+    const result = buildScreenSpine(spine, cam, viewport)
+    expect(result.visibleCount).toBe(0)
+    expect(result.readable.length).toBe(0)
+    expect(result.screenLen).toBe(0)
+  })
+
+  it('returns 0 screenLen for a single visible point (need >= 2)', () => {
+    // Country way off to the side, almost no points visible
+    const cam = makeCam(100)
+    const spine: SpinePoint[] = [{ x: 0, y: 0, tangentX: 1, tangentY: 0 }]
+    const result = buildScreenSpine(spine, cam, viewport)
+    expect(result.visibleCount).toBe(1)
+    expect(result.screenLen).toBe(0)
+  })
+
+  it('returns readable points in left-to-right order', () => {
+    const cam = makeCam(100)
+    const spine = makeSpine(5, [-50, 50])
+    const result = buildScreenSpine(spine, cam, viewport)
+    for (let i = 1; i < result.readable.length; i++) {
+      expect(result.readable[i]!.x).toBeGreaterThan(result.readable[i - 1]!.x)
+    }
+  })
+
+  it('screenLen scales with country size (larger xRange = longer screenLen)', () => {
+    const cam = makeCam(100)
+    const small = buildScreenSpine(makeSpine(5, [-10, 10]), cam, viewport)
+    const large = buildScreenSpine(makeSpine(5, [-50, 50]), cam, viewport)
+    expect(large.screenLen).toBeGreaterThan(small.screenLen)
+  })
+
+  it('screenLen matches spineScreenLength of readable points', () => {
+    const cam = makeCam(100)
+    const result = buildScreenSpine(makeSpine(8, [-40, 40]), cam, viewport)
+    const manual = spineScreenLength(result.readable)
+    expect(result.screenLen).toBeCloseTo(manual, 5)
   })
 })

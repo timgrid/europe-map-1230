@@ -1,4 +1,6 @@
 // Purpose: spine (главная ось) полигона страны для рендера подписей в стиле EU4 (text-along-path) | convex hull + rotating calipers + sample
+import * as THREE from 'three'
+import { projectWorldToScreen, type Viewport } from './projection'
 import { largestPolygon, type CountryGeometry } from './geoParser'
 
 export interface SpinePoint {
@@ -120,6 +122,14 @@ function smoothPoints(points: SpinePoint[], window = 3): SpinePoint[] {
 
 export { smoothPoints }
 
+export function spineScreenLength(screenPoints: Array<{ x: number; y: number }>): number {
+  let total = 0
+  for (let i = 1; i < screenPoints.length; i++) {
+    total += Math.hypot(screenPoints[i]!.x - screenPoints[i - 1]!.x, screenPoints[i]!.y - screenPoints[i - 1]!.y)
+  }
+  return total
+}
+
 /**
  * Reverses screen-space path so text reads left-to-right at midpoint.
  * SVG textPath follows path direction — if tangent.x at midpoint < 0,
@@ -170,4 +180,42 @@ export function getCountrySpine(country: CountryGeometry, samples = 24): SpinePo
     })
   }
   return result
+}
+
+const _spineWp = new THREE.Vector3()
+
+export interface ScreenSpineResult {
+  readable: Array<{ x: number; y: number }>
+  screenLen: number
+  visibleCount: number
+}
+
+/**
+ * Проецирует мировые точки spine на экран, отбрасывая невидимые (за камерой),
+ * выпрямляет направление (LTR для SVG textPath) и считает screen-length.
+ *
+ * Невидимые точки отбрасываются ДО ensureReadableDirection, чтобы spine за
+ * краем экрана не «утаскивал» направление в неверную сторону и не делал
+ * screenLen мусорным.
+ *
+ * @returns readable  — массив видимых screen-точек в читаемом направлении
+ * @returns screenLen — суммарная длина в пикселях (0 если readable.length < 2)
+ * @returns visibleCount — количество видимых точек до ensureReadableDirection
+ */
+export function buildScreenSpine(
+  spineWorld: SpinePoint[],
+  camera: THREE.Camera,
+  viewport: Viewport,
+): ScreenSpineResult {
+  const screen: Array<{ x: number; y: number }> = []
+  for (const sp of spineWorld) {
+    _spineWp.set(sp.x, 0.5, -sp.y)
+    const p = projectWorldToScreen(_spineWp, camera, viewport)
+    if (!p.visible) continue
+    screen.push({ x: p.x, y: p.y })
+  }
+  const visibleCount = screen.length
+  const readable = ensureReadableDirection(screen)
+  const screenLen = readable.length >= 2 ? spineScreenLength(readable) : 0
+  return { readable, screenLen, visibleCount }
 }

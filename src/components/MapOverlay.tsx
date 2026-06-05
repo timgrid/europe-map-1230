@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
-import { getCountrySpine, ensureReadableDirection, type SpinePoint } from '../utils/spine'
+import { getCountrySpine, buildScreenSpine, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../utils/projection'
 import {
@@ -59,7 +59,6 @@ interface LabelData {
   boundsHeight: number
   spineWorld: SpinePoint[]
   aspect: number
-  modeRef: 'point' | 'textpath'
   lastRenderName: string
 }
 
@@ -82,14 +81,6 @@ function buildPathD(points: Array<{ x: number; y: number }>): string {
   return d
 }
 
-function spineScreenLength(screenPoints: Array<{ x: number; y: number }>): number {
-  let total = 0
-  for (let i = 1; i < screenPoints.length; i++) {
-    total += Math.hypot(screenPoints[i]!.x - screenPoints[i - 1]!.x, screenPoints[i]!.y - screenPoints[i - 1]!.y)
-  }
-  return total
-}
-
 export default function MapOverlay({ countries }: MapOverlayProps) {
   const layer = useMapStore((s) => s.layer)
   const selectedId = useMapStore((s) => s.selectedCountry?.id ?? null)
@@ -100,6 +91,11 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
   const dataRef = useRef<Map<string, LabelData>>(new Map())
   const wasVisibleRef = useRef<Map<string, boolean>>(new Map())
   const lastVersionRef = useRef(-1)
+  const layerRef = useRef(layer)
+
+  useEffect(() => {
+    layerRef.current = layer
+  }, [layer])
 
   useEffect(() => {
     for (const c of visibleCountries) {
@@ -122,14 +118,16 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
     }
     const visibleIds = new Set(visibleCountries.map((c) => c.id))
     for (const id of dataRef.current.keys()) {
-      if (!visibleIds.has(id)) dataRef.current.delete(id)
+      if (!visibleIds.has(id)) {
+        dataRef.current.delete(id)
+        wasVisibleRef.current.delete(id)
+      }
     }
   }, [visibleCountries])
 
   useEffect(() => {
     let raf = 0
     let running = true
-    const _wp = new THREE.Vector3()
     const tick = () => {
       if (!running) return
       if (cameraSnapshot.version !== lastVersionRef.current) {
@@ -143,7 +141,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         for (const [id, data] of dataRef.current) {
           const wasVisible = wasVisibleRef.current.get(id) ?? false
           const proj = projectWorldToScreen(data.center, camera, viewport)
-          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible, layer)
+          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible, layerRef.current)
           if (fontSize === null || !proj.visible) continue
           const box = estimateLabelBox({
             id,
@@ -180,24 +178,16 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             continue
           }
 
-          const screenSpine: Array<{ x: number; y: number }> = []
-          for (const sp of data.spineWorld) {
-            _wp.set(sp.x, 0.5, -sp.y)
-            const p = projectWorldToScreen(_wp, camera, viewport)
-            screenSpine.push({ x: p.x, y: p.y })
-          }
-          const readable = ensureReadableDirection(screenSpine)
-          let screenLen = 0
-          if (readable.length >= 2) {
-            screenLen = spineScreenLength(readable)
-          }
+          const { readable, screenLen, visibleCount } = buildScreenSpine(data.spineWorld, camera, viewport)
 
           const cand = candidates.find((c) => c._id === id)
           const pointFontSize = cand?.fontSize ?? 14
-          const eligible = screenLen >= TEXTPATH_MIN_SCREEN_PX && data.aspect >= TEXTPATH_MIN_ASPECT
+          const eligible =
+            visibleCount >= 2 &&
+            screenLen >= TEXTPATH_MIN_SCREEN_PX &&
+            data.aspect >= TEXTPATH_MIN_ASPECT
 
           if (eligible && textEl && textPathEl && pathEl) {
-            data.modeRef = 'textpath'
             const textPathFontSize = getTextPathFontSize(screenLen) ?? 11
             const renderName = pickFittingName(data.displayName, data.shortName, screenLen, textPathFontSize, undefined)
             if (renderName !== data.lastRenderName) {
@@ -210,7 +200,6 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             textEl.style.display = ''
             divEl.style.display = 'none'
           } else {
-            data.modeRef = 'point'
             if (!cand) {
               divEl.style.display = 'none'
               if (textEl) textEl.style.display = 'none'
@@ -307,7 +296,6 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             d=""
             fill="none"
             stroke="none"
-            style={{ display: 'none' }}
           />
         ))}
       </svg>
@@ -341,7 +329,6 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                   boundsHeight: bounds.height,
                   spineWorld: spine,
                   aspect: bounds.height > 0 ? bounds.width / bounds.height : 1,
-                  modeRef: 'point',
                   lastRenderName: info?.name ?? c.name,
                 }
                 dataRef.current.set(c.id, data)
