@@ -48,12 +48,12 @@ export function projectWorldToScreen(
   return { x, y, visible, worldUnitsPerPixel }
 }
 
-const SHOW_THRESHOLD_PX = 35
-const HIDE_THRESHOLD_PX = 25
+const SHOW_THRESHOLD_PX = 30
+const HIDE_THRESHOLD_PX = 22
 const MIN_FONT_PX = 11
-const MAX_FONT_PX = 40
-const DETAILED_FILL_RATIO = 0.40
-const UNIFIED_FILL_RATIO = 0.32  // tighter — show more countries on busy maps
+const MAX_FONT_PX = 22        // cap → prevents giant boxes blocking neighbors
+const DETAILED_FILL_RATIO = 0.30
+const UNIFIED_FILL_RATIO = 0.24  // even tighter — show more countries
 
 export function getLabelFontSize(
   countryWidthWorld: number,

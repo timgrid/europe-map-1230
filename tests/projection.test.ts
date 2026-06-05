@@ -48,38 +48,38 @@ describe('projectWorldToScreen', () => {
 })
 
 describe('getLabelFontSize', () => {
-  it('returns null when country smaller than SHOW threshold (35px) and was hidden', () => {
+  it('returns null when country smaller than SHOW threshold (30px) and was hidden', () => {
     const wupp = 0.5
-    expect(getLabelFontSize(10, wupp, false)).toBeNull()  // 10/0.5 = 20px < 35
+    expect(getLabelFontSize(10, wupp, false)).toBeNull()  // 10/0.5 = 20px < 30
   })
 
-  it('returns clamped MIN when country just above threshold', () => {
+  it('returns proportional size for medium country', () => {
     const wupp = 0.5
-    const size = getLabelFontSize(20, wupp, false)  // 20/0.5 = 40px → 40*0.4 = 16 → clamp 11
-    expect(size).toBe(16)
+    const size = getLabelFontSize(20, wupp, false)  // 20/0.5 = 40px → 40*0.3 = 12
+    expect(size).toBe(12)
   })
 
-  it('returns clamped MAX for huge countries', () => {
+  it('returns clamped MAX (22) for huge countries — prevents giant boxes', () => {
     const wupp = 0.5
-    const size = getLabelFontSize(500, wupp, false)  // 500/0.5 = 1000px → 1000*0.4 = 400 → clamp 40
-    expect(size).toBe(40)
+    const size = getLabelFontSize(500, wupp, false)  // 1000*0.3 = 300 → clamp 22
+    expect(size).toBe(22)
   })
 
-  it('hysteresis: stays visible at 28px (between HIDE=25 and SHOW=35)', () => {
+  it('hysteresis: stays visible at 25px (between HIDE=22 and SHOW=30)', () => {
     const wupp = 0.5
-    // 28/0.5 = 56px; wasVisible=true, threshold=HIDE=25, so still visible
-    expect(getLabelFontSize(28, wupp, true)).not.toBeNull()
+    // 25/0.5 = 50px; wasVisible=true, threshold=HIDE=22, so still visible
+    expect(getLabelFontSize(25, wupp, true)).not.toBeNull()
   })
 
-  it('hysteresis: hides when was visible but size drops below HIDE (25px)', () => {
+  it('hysteresis: hides when was visible but size drops below HIDE (22px)', () => {
     const wupp = 0.5
-    // 10/0.5 = 20px; wasVisible=true, threshold=HIDE=25, hides
+    // 10/0.5 = 20px; wasVisible=true, threshold=HIDE=22, hides
     expect(getLabelFontSize(10, wupp, true)).toBeNull()
   })
 
-  it('hysteresis: shows when was hidden but size grows above SHOW (35px)', () => {
+  it('hysteresis: shows when was hidden but size grows above SHOW (30px)', () => {
     const wupp = 0.5
-    // 20/0.5 = 40px; wasVisible=false, threshold=SHOW=35, shows
+    // 20/0.5 = 40px; wasVisible=false, threshold=SHOW=30, shows
     expect(getLabelFontSize(20, wupp, false)).not.toBeNull()
   })
 
@@ -87,30 +87,37 @@ describe('getLabelFontSize', () => {
     expect(getLabelFontSize(100, 0, false)).toBeNull()
   })
 
-  it('hysteresis dead zone (25-35px): state does not flip', () => {
+  it('hysteresis dead zone (22-30px): state does not flip', () => {
     const wupp = 0.5
     // 30/0.5 = 60px — well above both thresholds; always visible
     expect(getLabelFontSize(30, wupp, false)).not.toBeNull()
     expect(getLabelFontSize(30, wupp, true)).not.toBeNull()
   })
 
-  it('typical case: HRE (150u) at default zoom (wupp=0.065) → clamped to 40', () => {
-    const size = getLabelFontSize(150, 0.065, false)  // 150/0.065 ≈ 2308px → 923 → clamp 40
-    expect(size).toBe(40)
+  it('typical case: HRE (150u) at default zoom (wupp=0.065) → clamped to MAX=22', () => {
+    const size = getLabelFontSize(150, 0.065, false)
+    expect(size).toBe(22)
   })
 
-  it('typical case: Cyprus (4u) at default zoom (wupp=0.065) → visible, ~24px', () => {
-    const size = getLabelFontSize(4, 0.065, false)  // 4/0.065 ≈ 61px → 61*0.4 = 24
-    expect(size).not.toBeNull()
-    expect(size!).toBeGreaterThan(20)
-    expect(size!).toBeLessThan(26)
+  it('typical case: France (30u) at default zoom (wupp=0.065) → ~16-22px', () => {
+    const size = getLabelFontSize(30, 0.065, false)  // 30/0.065 ≈ 461px → 461*0.3 = 138 → clamp 22
+    expect(size).toBe(22)
   })
 
-  it('unified layer uses tighter fill ratio (0.32) → smaller labels', () => {
+  it('unified layer uses tighter fill ratio (0.24) → smaller labels', () => {
     const wupp = 0.5
-    const detailed = getLabelFontSize(50, wupp, false, 'detailed')  // 100px → 40px → clamp 40
-    const unified = getLabelFontSize(50, wupp, false, 'unified')    // 100px → 32px
-    expect(detailed).toBe(40)
-    expect(unified).toBe(32)
+    const detailed = getLabelFontSize(50, wupp, false, 'detailed')  // 100px → 30 → clamp 22
+    const unified = getLabelFontSize(50, wupp, false, 'unified')    // 100px → 24 → clamp 22
+    expect(detailed).toBe(22)
+    expect(unified).toBe(22)
+  })
+
+  it('unified vs detailed difference visible at smaller sizes', () => {
+    const wupp = 0.5
+    // 30/0.5 = 60px country width on screen
+    const detailed = getLabelFontSize(30, wupp, false, 'detailed')  // 60*0.3 = 18
+    const unified = getLabelFontSize(30, wupp, false, 'unified')    // 60*0.24 = 14.4
+    expect(detailed).toBe(18)
+    expect(unified).toBeCloseTo(14.4, 5)
   })
 })
