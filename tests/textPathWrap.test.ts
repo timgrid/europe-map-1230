@@ -6,9 +6,11 @@ import {
   getLineOffsets,
   isSpineInsidePolygon,
   shouldUseMultiLine,
+  getTextPathSpineOffset,
+  TEXTPATH_MAX_EDGE_OFFSET,
 } from '../src/utils/textPathWrap'
 import type { SpinePoint } from '../src/utils/spine'
-import type { CountryGeometry } from '../src/utils/geoParser'
+import { parseEuropeGeoJSON, type CountryGeometry } from '../src/utils/geoParser'
 import * as THREE from 'three'
 
 describe('wrapBalanced', () => {
@@ -222,5 +224,111 @@ describe('shouldUseMultiLine', () => {
 
   it('returns true for square country (aspect=1.0)', () => {
     expect(shouldUseMultiLine('Священная Римская Империя', 1.0, false)).toBe(true)
+  })
+})
+
+describe('getTextPathSpineOffset', () => {
+  function polyFromOuter(outer: number[][]) {
+    return { outer, holes: [] as number[][][] }
+  }
+  function makeGeom(polygons: { outer: number[][]; holes: number[][][] }[]): CountryGeometry {
+    const data: ProcessedData = {
+      year: 1200,
+      bounds: { minX: -10, maxX: 10, minY: -10, maxY: 10 },
+      scale: 1,
+      offsetX: 0,
+      offsetY: 0,
+      countries: [{ id: 'x', name: 'X', color: '#000', center: [0, 0], polygons }],
+    }
+    return parseEuropeGeoJSON(data)[0]!
+  }
+
+  it('returns 0 when spine is fully inside country (no shift needed)', () => {
+    const geom = makeGeom([polyFromOuter([
+      [-10, -10], [10, -10], [10, 10], [-10, 10], [-10, -10],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: -5, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 0, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 0, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom)).toBe(0)
+  })
+
+  it('returns 0 when spine is on the permissive edge (ray-cast considers it inside)', () => {
+    // For [[0,0], [10,0], [10,2.5], [0,2.5]] the bottom edge is permissive:
+    // pointInPolygonWithHoles(5, 0) = true. So no shift is needed.
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 2.5], [0, 2.5], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 0, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom)).toBe(0)
+  })
+
+  it('returns 0 (best effort) when no valid shift found (chord endpoints on mixed edges)', () => {
+    // Country 2 thick, spine ABOVE country at y=3. Chord endpoints on strict edges.
+    // Algorithm tries +1 (away), -1 (top edge, strict), -2 (inside but endpoint on right edge strict).
+    // → returns 0
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 2], [0, 2], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 3, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 3, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 3, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom)).toBe(0)
+  })
+
+  it('exports TEXTPATH_MAX_EDGE_OFFSET = 4', () => {
+    expect(TEXTPATH_MAX_EDGE_OFFSET).toBe(4)
+  })
+
+  it('returns 0 (best effort) when spine is way outside country', () => {
+    // Spine 10 units above country. Even maxOffset=4 can't reach.
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 2], [0, 2], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 10, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 10, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 10, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom, 4)).toBe(0)
+  })
+
+  it('respects maxOffset=0 (returns 0 without trying shifts)', () => {
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 2], [0, 2], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 0.5, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 0.5, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 0.5, tangentX: 1, tangentY: 0 },
+    ]
+    // Even when shift could help, maxOffset=0 disables the search.
+    expect(getTextPathSpineOffset(spine, geom, 0)).toBe(0)
+  })
+
+  it('handles chord passing through a notch (best effort)', () => {
+    // Country: square 0..10 with a notch (hole) on the right side. The chord
+    // endpoints (x=10) are on the strict right edge regardless of any shift.
+    // Algorithm returns 0 (best effort: text is rendered with slight overflow).
+    // This test documents the limitation; the function is still useful when
+    // endpoints are NOT on the strict right edge (e.g. for future curved spines).
+    const geom = makeGeom([{
+      outer: [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+      holes: [[[7, 2], [10, 2], [10, 8], [7, 8], [7, 2]]],
+    }])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 5, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 5, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 5, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom, 5)).toBe(0)
   })
 })

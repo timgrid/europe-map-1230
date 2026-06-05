@@ -1,4 +1,4 @@
-// Purpose: многострочный text-along-path рендеринг (EU4/Clausewitz-style) | балансировка слов, сдвиг spine по нормали, clipping check
+// Purpose: многострочный text-along-path рендеринг (EU4/Clausewitz-style) | балансировка слов, сдвиг spine по нормали, clipping check, normal-offset для узких стран
 import { largestPolygon, pointInPolygonWithHoles, type CountryGeometry } from './geoParser'
 import type { SpinePoint } from './spine'
 
@@ -93,6 +93,50 @@ export function isSpineInsidePolygon(spine: SpinePoint[], country: CountryGeomet
     if (!pointInPolygonWithHoles(pt.x, pt.y, poly.outer, poly.holes)) return false
   }
   return true
+}
+
+/**
+ * Максимальное смещение spine по нормали (в world units) при поиске позиции,
+ * где все точки лежат внутри полигона страны. Соответствует ~4-5px на экране
+ * при типичном zoom (worldUnitsPerPixel ≈ 0.7-1.0).
+ */
+export const TEXTPATH_MAX_EDGE_OFFSET = 4
+
+/**
+ * Подбирает оптимальное смещение spine по нормали, чтобы подпись НЕ лежала
+ * на границе страны. Если spine уже полностью внутри — возвращает 0.
+ *
+ * Алгоритм двусторонний: для каждого `offset` в [0..maxOffset] пробует ОБЕ
+ * стороны сдвига (+offset и -offset) и возвращает первое смещение, при
+ * котором все точки внутри. Преимущество двустороннего поиска: spine-ы
+ * чьи концы лежат на разных граничных рёбрах (одно permissive, другое strict)
+ * теперь могут быть исправлены.
+ *
+ * Если ни одно смещение не помогает — возвращает 0 (best effort: лучше
+ * показать текст слегка за границей, чем вообще без подписи).
+ *
+ * @param spine      — базовая world-space ось страны
+ * @param country    — полигон для clipping check
+ * @param maxOffset  — максимальное смещение (по умолчанию 4 world units)
+ * @returns смещение в world units, которое нужно применить через shiftSpineByNormal
+ *
+ * EU4 делает похожий сдвиг: подпись располагается не точно на оси, а на
+ * «безопасной» внутренней кривой, чтобы избежать наложения на границу.
+ */
+export function getTextPathSpineOffset(
+  spine: SpinePoint[],
+  country: CountryGeometry,
+  maxOffset: number = TEXTPATH_MAX_EDGE_OFFSET,
+): number {
+  for (let offset = 0; offset <= maxOffset; offset++) {
+    if (offset === 0) {
+      if (isSpineInsidePolygon(spine, country)) return 0
+      continue
+    }
+    if (isSpineInsidePolygon(shiftSpineByNormal(spine, offset), country)) return offset
+    if (isSpineInsidePolygon(shiftSpineByNormal(spine, -offset), country)) return -offset
+  }
+  return 0
 }
 
 /**

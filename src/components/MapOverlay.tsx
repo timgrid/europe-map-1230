@@ -24,6 +24,7 @@ import {
   getLineOffsets,
   isSpineInsidePolygon,
   shouldUseMultiLine,
+  getTextPathSpineOffset,
 } from '../utils/textPathWrap'
 
 const DETAILED_LABEL_IDS = new Set([
@@ -201,6 +202,15 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
     )
     const isSingleFull = singlePicked === data.displayName
 
+    // Normal-offset: сдвигаем spine по нормали, чтобы хребет не лежал на границе
+    // (best-effort; для chord-based spine обычно возвращает 0).
+    const normalOffset = data.country
+      ? getTextPathSpineOffset(data.spineWorld, data.country)
+      : 0
+    const spineBase = normalOffset !== 0
+      ? shiftSpineByNormal(data.spineWorld, normalOffset)
+      : data.spineWorld
+
     let lines: string[] = [singlePicked]
     if (shouldUseMultiLine(data.displayName, data.aspect, isSingleFull)) {
       const wrapped = wrapBalanced(data.displayName, MAX_LABEL_LINES)
@@ -210,10 +220,10 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         return line.length * charWidth <= screenLen
       })
       if (allFit && data.country) {
-        // Clipping check: each shifted spine must stay inside the country polygon
+        // Clipping check: each shifted spine (relative to base) must stay inside the country
         const offsets = getLineOffsets(wrapped.length, lineSpacing)
         const allInside = offsets.every((off) => {
-          const worldShifted = shiftSpineByNormal(data.spineWorld, off)
+          const worldShifted = shiftSpineByNormal(spineBase, off)
           return isSpineInsidePolygon(worldShifted, data.country!)
         })
         if (allInside) {
@@ -222,7 +232,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
       }
     }
 
-    // Render each line
+    // Render each line (relative to the normal-shifted base spine)
     const offsets = getLineOffsets(lines.length, lineSpacing)
     for (let i = 0; i < MAX_LABEL_LINES; i++) {
       const textEl = data.texts[i]
@@ -230,7 +240,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
       const pathEl = data.paths[i]
       if (i < lines.length && textEl && textPathEl && pathEl) {
         const offset = offsets[i]!
-        const worldShifted = shiftSpineByNormal(data.spineWorld, offset)
+        const worldShifted = shiftSpineByNormal(spineBase, offset)
         const screenShifted = buildScreenSpine(worldShifted, camera, viewport)
         const readable = ensureReadableDirection(screenShifted.readable)
         const d = buildPathD(readable)
