@@ -250,6 +250,19 @@ function App() {
             <span className="mb-2">500 км</span>
           </div>
         </div>
+
+        {/* Debug HUD */}
+        <div
+          id="overlay-hud"
+          className="absolute top-1 left-1 text-[10px] font-mono pointer-events-none px-1 py-0.5 rounded"
+          style={{
+            background: 'rgba(0,0,0,0.6)',
+            color: '#0f0',
+            zIndex: 100,
+          }}
+        >
+          …
+        </div>
       </div>
     </div>
   )

@@ -123,6 +123,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           })
         }
         const visibility = resolveLabelOverlaps(candidates)
+        let visibleCount = 0
         for (const [id, data] of dataRef.current) {
           const el = data.div
           if (!el) continue
@@ -137,10 +138,15 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             el.style.display = 'none'
             continue
           }
+          visibleCount++
           el.style.display = ''
           el.style.left = `${cand.x}px`
           el.style.top = `${cand.y}px`
           el.style.fontSize = `${cand.fontSize}px`
+        }
+        const hud = document.getElementById('overlay-hud')
+        if (hud) {
+          hud.textContent = `v=${cameraSnapshot.version} | data=${dataRef.current.size} | cand=${candidates.length} | vis=${visibleCount} | viewport=${cameraSnapshot.viewportWidth.toFixed(0)}x${cameraSnapshot.viewportHeight.toFixed(0)} | fov=${cameraSnapshot.fov.toFixed(1)}`
         }
       }
       raf = requestAnimationFrame(tick)
