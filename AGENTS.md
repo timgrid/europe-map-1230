@@ -35,7 +35,7 @@ GitHub Pages + Telegram Mini App.
 npm ci              # установка зависимостей (запускает husky init)
 npm run dev         # dev-сервер с HMR
 npm run build       # tsc -b && vite build → dist/
-npm test            # vitest run (79 тестов, ~0.7s)
+npm test            # vitest run (95 тестов, ~0.8s)
 npm run test:watch  # vitest в режиме watch
 npm run test:coverage
 npm run lint        # eslint
@@ -161,10 +161,11 @@ europe-map-1230/
 - `tests/geoParser.test.ts` — 15 тестов геометрии + getCountryBounds
 - `tests/camera.test.ts` — 15 тестов расчёта камеры (getMapSize, getInitialCameraConfig)
 - `tests/projection.test.ts` — 15 тестов (projectWorldToScreen + getLabelFontSize с гистерезисом)
+- `tests/labelLayout.test.ts` — 16 тестов (estimateLabelBox, boxesIntersect, resolveLabelOverlaps с бонусом стабильности)
 - `tests/schema.test.ts` — 7 тестов Zod-валидации
 - `tests/telegram.test.ts` — 17 тестов TG-утилит (parseSDKVersion, isFullscreenSupported, etc.)
 - `vitest.config.ts` — Node environment, coverage на `src/utils/**` и `src/data/**`
-- Husky `pre-commit` запускает `npm test` (~0.7s, 79 тестов)
+- Husky `pre-commit` запускает `npm test` (~0.8s, 95 тестов)
 
 ## Где что искать
 
@@ -173,7 +174,8 @@ europe-map-1230/
 | Список годов | `src/components/UI/YearToggle.tsx` |
 | Цвета и алиасы стран | `scripts/process-geojson.cjs` (colorMap, commonAliases) |
 | Русские описания стран | `src/data/countryMetadata.ts` |
-| Подписи на карте (2D HTML) | `src/components/MapOverlay.tsx` (whitelist + RAF-loop, читает cameraSnapshot) |
+| Подписи на карте (2D HTML) | `src/components/MapOverlay.tsx` (whitelist + RAF-loop + LOD + overlap) |
+| Layout подписей | `src/utils/labelLayout.ts` (estimateLabelBox, boxesIntersect, resolveLabelOverlaps) |
 | Камера / свет | `src/App.tsx` (lazy MapCanvas) + `src/utils/camera.ts` (getInitialCameraConfig) + `src/components/CameraRig.tsx` |
 | Мост Canvas → DOM (camera state) | `src/components/CameraBridge.tsx` + `src/state/cameraState.ts` |
 | Данные конкретного года | `public/data/processed/europe_<year>.json` |

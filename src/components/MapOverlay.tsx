@@ -1,10 +1,15 @@
-// Purpose: 2D HTML-оверлей для подписей стран | проецирует центры стран через cameraSnapshot, считает размер шрифта по ширине страны (LOD с гистерезисом)
+// Purpose: 2D HTML-оверлей для подписей стран | проецирует центры через cameraSnapshot, считает fontSize (LOD с гистерезисом) + решает пересечения
 import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, type CountryGeometry } from '../utils/geoParser'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize } from '../utils/projection'
+import {
+  resolveLabelOverlaps,
+  estimateLabelBox,
+  type LabelBox,
+} from '../utils/labelLayout'
 import { useMapStore } from '../store'
 
 const DETAILED_LABEL_IDS = new Set([
@@ -38,9 +43,15 @@ const UNIFIED_LABEL_IDS = new Set([
 
 interface LabelData {
   div: HTMLDivElement | null
-  info: ReturnType<typeof getCountryInfo>
+  displayName: string
+  capital: string | undefined
   center: THREE.Vector3
   boundsWidth: number
+}
+
+interface LabelCandidate extends LabelBox {
+  _id: string
+  fontSize: number
 }
 
 interface MapOverlayProps {
@@ -55,7 +66,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
   const visibleCountries = countries.filter((c) => whitelist.has(c.id))
 
   const dataRef = useRef<Map<string, LabelData>>(new Map())
-  const visibleRef = useRef<Map<string, boolean>>(new Map())
+  const wasVisibleRef = useRef<Map<string, boolean>>(new Map())
   const lastVersionRef = useRef(-1)
 
   useEffect(() => {
@@ -67,7 +78,8 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
       const prev = dataRef.current.get(c.id)
       map.set(c.id, {
         div: prev?.div ?? null,
-        info,
+        displayName: info?.name ?? c.name,
+        capital: info?.capital,
         center,
         boundsWidth: bounds.width,
       })
@@ -87,22 +99,48 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           width: cameraSnapshot.viewportWidth,
           height: cameraSnapshot.viewportHeight,
         }
+        const candidates: LabelCandidate[] = []
+        for (const [id, data] of dataRef.current) {
+          const wasVisible = wasVisibleRef.current.get(id) ?? false
+          const proj = projectWorldToScreen(data.center, camera, viewport)
+          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible)
+          if (fontSize === null || !proj.visible) continue
+          const box = estimateLabelBox({
+            id,
+            displayName: data.displayName,
+            capital: data.capital,
+            fontSize,
+          })
+          candidates.push({
+            _id: id,
+            x: proj.x,
+            y: proj.y,
+            width: box.width,
+            height: box.height,
+            priority: data.boundsWidth,
+            wasVisible,
+            fontSize,
+          })
+        }
+        const visibility = resolveLabelOverlaps(candidates)
         for (const [id, data] of dataRef.current) {
           const el = data.div
           if (!el) continue
-          const wasVisible = visibleRef.current.get(id) ?? false
-          const proj = projectWorldToScreen(data.center, camera, viewport)
-          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible)
-          const show = fontSize !== null && proj.visible
-          visibleRef.current.set(id, show)
+          const show = visibility.get(id) ?? false
+          wasVisibleRef.current.set(id, show)
           if (!show) {
             el.style.display = 'none'
             continue
           }
+          const cand = candidates.find((c) => c._id === id)
+          if (!cand) {
+            el.style.display = 'none'
+            continue
+          }
           el.style.display = ''
-          el.style.left = `${proj.x}px`
-          el.style.top = `${proj.y}px`
-          el.style.fontSize = `${fontSize}px`
+          el.style.left = `${cand.x}px`
+          el.style.top = `${cand.y}px`
+          el.style.fontSize = `${cand.fontSize}px`
         }
       }
       raf = requestAnimationFrame(tick)
