@@ -1,8 +1,5 @@
 // Purpose: корневой компонент приложения | App root — canvas R3F, UI-оверлей, загрузка данных
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls } from '@react-three/drei'
-import MapScene from './components/MapScene'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SidePanel from './components/UI/SidePanel'
 import Tooltip from './components/UI/Tooltip'
 import LayerToggle from './components/UI/LayerToggle'
@@ -10,9 +7,10 @@ import YearToggle from './components/UI/YearToggle'
 import LoadingScreen from './components/UI/LoadingScreen'
 import ControlsHint from './components/UI/ControlsHint'
 import FullscreenButton from './components/UI/FullscreenButton'
-import CameraRig from './components/CameraRig'
-import CameraBridge from './components/CameraBridge'
 import MapOverlay from './components/MapOverlay'
+import CanvasFallback from './components/CanvasFallback'
+
+const MapCanvas = lazy(() => import('./components/MapCanvas'))
 import { useMapStore } from './store'
 import { loadYearData, type ProcessedData } from './utils/dataLoader'
 import { parseEuropeGeoJSON, getMapCenter, type CountryGeometry } from './utils/geoParser'
@@ -29,9 +27,6 @@ const CAMERA_POLAR = 0.2
 const CAMERA_PADDING = 1.15
 const CAMERA_MIN_DIST = 200
 const CAMERA_MAX_DIST = 1500
-
-const PAN = 1
-const DOLLY_ROTATE = 3
 
 function App() {
   const [countries, setCountries] = useState<CountryGeometry[]>([])
@@ -176,62 +171,23 @@ function App() {
     >
       {isLoading && <LoadingScreen />}
 
-      <Canvas
-        camera={{ position: cameraPosition, fov: CAMERA_FOV, near: 0.1, far: 2000 }}
-        shadows={!isMobile}
-        dpr={isMobile ? [1, 1.25] : [1, 1.75]}
-        gl={{ antialias: !isMobile, alpha: false, powerPreference: 'high-performance' }}
-        style={{ background: '#0a1628' }}
-        onPointerMissed={handlePointerMissed}
-        frameloop={isActive ? 'demand' : 'never'}
-      >
-        <CameraRig position={cameraPosition} target={worldCenter} fov={CAMERA_FOV} />
-        <CameraBridge />
+      <CanvasFallback />
 
-        <fog attach="fog" args={['#0a1628', 500, 1200]} />
-
-        <ambientLight intensity={0.5} color="#ffd4a3" />
-        <directionalLight
-          position={[mapCenter.x - 40, 100, -mapCenter.y + 40]}
-          intensity={1.2}
-          color="#ffecd1"
-          {...(isMobile
-            ? { castShadow: false }
-            : {
-                castShadow: true,
-                'shadow-mapSize-width': 2048,
-                'shadow-mapSize-height': 2048,
-                'shadow-camera-far': 500,
-                'shadow-camera-left': -180,
-                'shadow-camera-right': 180,
-                'shadow-camera-top': 180,
-                'shadow-camera-bottom': -180,
-              })}
-        />
-        <hemisphereLight args={['#87CEEB', '#8B4513', 0.3]} />
-
-        {countries.length > 0 && <MapScene countries={countries} />}
-
-        <OrbitControls
-          mouseButtons={{ LEFT: 2, MIDDLE: 1, RIGHT: 0 }}
-          touches={{ ONE: PAN, TWO: DOLLY_ROTATE }}
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          minPolarAngle={0.1}
-          maxPolarAngle={0.6}
+      <Suspense fallback={null}>
+        <MapCanvas
+          countries={countries}
+          cameraPosition={cameraPosition}
+          worldCenter={worldCenter}
+          fov={CAMERA_FOV}
           minDistance={CAMERA_MIN_DIST}
           maxDistance={CAMERA_MAX_DIST}
-          rotateSpeed={0.25}
-          zoomSpeed={0.6}
-          panSpeed={0.8}
-          enableDamping={true}
-          dampingFactor={0.05}
-          screenSpacePanning={true}
-          target={worldCenter}
-          makeDefault
+          isMobile={isMobile}
+          isActive={isActive}
+          mapCenterX={mapCenter.x}
+          mapCenterY={mapCenter.y}
+          onPointerMissed={handlePointerMissed}
         />
-      </Canvas>
+      </Suspense>
 
       {countries.length > 0 && <MapOverlay countries={countries} />}
 

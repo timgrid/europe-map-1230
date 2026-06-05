@@ -58,7 +58,7 @@ europe-map-1230/
 ├── scripts/
 │   └── process-geojson.cjs  # build-time препроцессинг
 ├── src/
-│   ├── components/        # React-компоненты (UI/, MapScene, CountryMesh, MapOverlay, CameraBridge, CameraRig, TelegramBackButton)
+│   ├── components/        # React-компоненты (UI/, MapScene, MapCanvas [lazy R3F], MapOverlay, CameraBridge, CameraRig, CountryMesh, TelegramBackButton)
 │   ├── data/              # статические словари (countryMetadata.ts)
 │   ├── hooks/             # useDeviceType, useTelegram
 │   ├── state/             # shared mutable refs (cameraState.ts — мост между Canvas и DOM-оверлеем)
@@ -150,8 +150,9 @@ europe-map-1230/
 - Размер JSON-данных: ≤150 КБ на год (текущее: 100-145 КБ).
 - Время `JSON.parse` + `THREE.Shape` конструктор: ≤500мс на десктопе.
 - FCP (First Contentful Paint): ≤2с на 3G.
-- Bundle size: текущий 1.36 МБ (377 КБ gzip) — допустимо, но `dist/assets/index-*.js` уже
-  >500 КБ → Vite warning. Не добавляй тяжёлые зависимости без code-splitting.
+- Bundle size: initial 1.19 МБ (323 КБ gzip) + lazy 175 КБ (55 КБ gzip) для R3F-сцены.
+  Three.js + drei вынесены в `MapCanvas` через `React.lazy` + `<Suspense>` —
+  initial bundle уменьшился на ~54 КБ gzip. FCP улучшен.
 
 ## Тестовая инфраструктура
 
@@ -173,7 +174,7 @@ europe-map-1230/
 | Цвета и алиасы стран | `scripts/process-geojson.cjs` (colorMap, commonAliases) |
 | Русские описания стран | `src/data/countryMetadata.ts` |
 | Подписи на карте (2D HTML) | `src/components/MapOverlay.tsx` (whitelist + RAF-loop, читает cameraSnapshot) |
-| Камера / свет | `src/App.tsx` + `src/utils/camera.ts` (getInitialCameraConfig) + `src/components/CameraRig.tsx` |
+| Камера / свет | `src/App.tsx` (lazy MapCanvas) + `src/utils/camera.ts` (getInitialCameraConfig) + `src/components/CameraRig.tsx` |
 | Мост Canvas → DOM (camera state) | `src/components/CameraBridge.tsx` + `src/state/cameraState.ts` |
 | Данные конкретного года | `public/data/processed/europe_<year>.json` |
 | Исходник (gitignored) | `public/world_<year>.geojson` |
