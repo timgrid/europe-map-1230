@@ -14,6 +14,7 @@ export default function CameraBridge() {
       if (!running) return
       const cam = camera as THREE.PerspectiveCamera
       cameraSnapshot.position.copy(cam.position)
+      cameraSnapshot.quaternion.copy(cam.quaternion)
       cameraSnapshot.fov = cam.fov
       cameraSnapshot.viewportWidth = size.width
       cameraSnapshot.viewportHeight = size.height
