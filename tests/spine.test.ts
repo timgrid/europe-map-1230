@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { convexHull, rotatingCalipersDiameter, getCountrySpine } from '../src/utils/spine'
+import {
+  convexHull,
+  rotatingCalipersDiameter,
+  getCountrySpine,
+  ensureReadableDirection,
+} from '../src/utils/spine'
 import { parseEuropeGeoJSON, type CountryGeometry } from '../src/utils/geoParser'
 import type { ProcessedData } from '../src/utils/dataLoader'
 
@@ -180,5 +185,65 @@ describe('getCountrySpine', () => {
       const len = Math.hypot(p.tangentX, p.tangentY)
       expect(len).toBeCloseTo(1, 5)
     }
+  })
+})
+
+describe('ensureReadableDirection', () => {
+  it('returns single point unchanged', () => {
+    const p = [{ x: 5, y: 5 }]
+    expect(ensureReadableDirection(p)).toBe(p)
+  })
+
+  it('keeps left-to-right path unchanged', () => {
+    const pts = [
+      { x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 },
+    ]
+    const result = ensureReadableDirection(pts)
+    expect(result).toBe(pts)
+    expect(result[0]?.x).toBe(0)
+    expect(result[2]?.x).toBe(10)
+  })
+
+  it('reverses right-to-left path so text reads left-to-right', () => {
+    const pts = [
+      { x: 10, y: 0 }, { x: 5, y: 0 }, { x: 0, y: 0 },
+    ]
+    const result = ensureReadableDirection(pts)
+    expect(result[0]?.x).toBe(0)
+    expect(result[2]?.x).toBe(10)
+  })
+
+  it('keeps steeply-upward (left-to-right tilted) path unchanged', () => {
+    const pts = [
+      { x: 0, y: 100 }, { x: 5, y: 50 }, { x: 10, y: 0 },
+    ]
+    const result = ensureReadableDirection(pts)
+    expect(result).toBe(pts)
+  })
+
+  it('reverses steeply-upward (right-to-left tilted) path', () => {
+    const pts = [
+      { x: 10, y: 0 }, { x: 5, y: 50 }, { x: 0, y: 100 },
+    ]
+    const result = ensureReadableDirection(pts)
+    expect(result[0]?.x).toBe(0)
+    expect(result[0]?.y).toBe(100)
+  })
+
+  it('keeps pure vertical path (tangent.x = 0) unchanged', () => {
+    const pts = [
+      { x: 5, y: 0 }, { x: 5, y: 5 }, { x: 5, y: 10 },
+    ]
+    const result = ensureReadableDirection(pts)
+    expect(result).toBe(pts)
+  })
+
+  it('does not mutate input array', () => {
+    const pts = [
+      { x: 10, y: 0 }, { x: 5, y: 0 }, { x: 0, y: 0 },
+    ]
+    const original = pts.slice()
+    ensureReadableDirection(pts)
+    expect(pts).toEqual(original)
   })
 })

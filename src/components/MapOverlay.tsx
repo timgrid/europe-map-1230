@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
-import { getCountrySpine, type SpinePoint } from '../utils/spine'
+import { getCountrySpine, ensureReadableDirection, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize } from '../utils/projection'
 import {
@@ -172,20 +172,21 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           }
 
           const screenSpine: Array<{ x: number; y: number }> = []
-          let screenLen = 0
           for (const sp of data.spineWorld) {
             _wp.set(sp.x, 0.5, -sp.y)
             const p = projectWorldToScreen(_wp, camera, viewport)
             screenSpine.push({ x: p.x, y: p.y })
           }
-          if (screenSpine.length >= 2) {
-            screenLen = spineScreenLength(screenSpine)
+          const readable = ensureReadableDirection(screenSpine)
+          let screenLen = 0
+          if (readable.length >= 2) {
+            screenLen = spineScreenLength(readable)
           }
 
           const eligible = screenLen >= TEXTPATH_MIN_SCREEN_PX && data.aspect >= TEXTPATH_MIN_ASPECT
           if (eligible && textEl && pathEl) {
             data.modeRef = 'textpath'
-            const d = buildPathD(screenSpine)
+            const d = buildPathD(readable)
             pathEl.setAttribute('d', d)
             const cand = candidates.find((c) => c._id === id)
             const fontSize = cand?.fontSize ?? 14

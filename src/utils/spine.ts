@@ -120,6 +120,21 @@ function smoothPoints(points: SpinePoint[], window = 3): SpinePoint[] {
 
 export { smoothPoints }
 
+/**
+ * Reverses screen-space path so text reads left-to-right at midpoint.
+ * SVG textPath follows path direction — if tangent.x at midpoint < 0,
+ * the text would render upside down. Returns the same points (or reversed).
+ */
+export function ensureReadableDirection<T extends { x: number; y: number }>(points: T[]): T[] {
+  if (points.length < 2) return points
+  const mid = Math.floor(points.length / 2)
+  const a = points[mid - 1] ?? points[0]!
+  const b = points[mid + 1] ?? points[points.length - 1]!
+  const tx = b.x - a.x
+  if (tx < 0) return points.slice().reverse()
+  return points
+}
+
 export function getCountrySpine(country: CountryGeometry, samples = 24): SpinePoint[] {
   const poly = largestPolygon(country)
   if (!poly || poly.outer.length < 3) {
