@@ -104,15 +104,25 @@ function App() {
   }, [currentYear, reloadKey, setLoading])
 
   // Track viewport aspect for camera fit
+  // In Telegram, use viewportStableHeight (real usable area) instead of
+  // window.innerHeight — before expand()/fullscreen, the browser window is
+  // tiny and aspect → ∞, pushing the camera past maxDistance (black screen).
   useEffect(() => {
-    const onResize = () => setAspect(window.innerWidth / window.innerHeight)
+    const computeAspect = () => {
+      if (isTG && viewportStableHeight > 0) {
+        return window.innerWidth / viewportStableHeight
+      }
+      return window.innerWidth / window.innerHeight
+    }
+    const onResize = () => setAspect(computeAspect())
+    setAspect(computeAspect())
     window.addEventListener('resize', onResize)
     window.addEventListener('orientationchange', onResize)
     return () => {
       window.removeEventListener('resize', onResize)
       window.removeEventListener('orientationchange', onResize)
     }
-  }, [])
+  }, [isTG, viewportStableHeight])
 
   // Compute camera position to fit the current map size on screen
   const cameraFit = useMemo(
@@ -182,6 +192,7 @@ function App() {
           minDistance={CAMERA_MIN_DIST}
           maxDistance={CAMERA_MAX_DIST}
           isMobile={isMobile}
+          isTG={isTG}
           isActive={isActive}
           mapCenterX={mapCenter.x}
           mapCenterY={mapCenter.y}

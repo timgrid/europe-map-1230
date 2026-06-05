@@ -16,9 +16,9 @@ export interface LabelEstimate {
 }
 
 const CHAR_WIDTH_RATIO = 0.55
-const LINE_HEIGHT = 1.15
+const LINE_HEIGHT = 1.05
 const CAPITAL_RATIO = 0.65
-const STAR_GLYPH_WIDTH = 16
+const STAR_GLYPH_WIDTH = 14
 const STABILITY_BONUS = 0.35
 
 export function estimateLabelBox(est: LabelEstimate): LabelBox {

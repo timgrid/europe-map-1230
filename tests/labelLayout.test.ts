@@ -6,7 +6,7 @@ describe('estimateLabelBox', () => {
   it('computes single-line width from text length and font size', () => {
     const box = estimateLabelBox({ id: 'x', displayName: 'Франция', capital: undefined, fontSize: 16 })
     expect(box.width).toBeCloseTo('Франция'.length * 16 * 0.55, 5)
-    expect(box.height).toBeCloseTo(16 * 1.15, 5)
+    expect(box.height).toBeCloseTo(16 * 1.05, 5)
   })
 
   it('uses two-line height when capital is present', () => {

@@ -105,4 +105,12 @@ describe('getLabelFontSize', () => {
     expect(size!).toBeGreaterThan(20)
     expect(size!).toBeLessThan(26)
   })
+
+  it('unified layer uses tighter fill ratio (0.32) → smaller labels', () => {
+    const wupp = 0.5
+    const detailed = getLabelFontSize(50, wupp, false, 'detailed')  // 100px → 40px → clamp 40
+    const unified = getLabelFontSize(50, wupp, false, 'unified')    // 100px → 32px
+    expect(detailed).toBe(40)
+    expect(unified).toBe(32)
+  })
 })

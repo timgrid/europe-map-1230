@@ -103,7 +103,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         for (const [id, data] of dataRef.current) {
           const wasVisible = wasVisibleRef.current.get(id) ?? false
           const proj = projectWorldToScreen(data.center, camera, viewport)
-          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible)
+          const fontSize = getLabelFontSize(data.boundsWidth, proj.worldUnitsPerPixel, wasVisible, layer)
           if (fontSize === null || !proj.visible) continue
           const box = estimateLabelBox({
             id,
@@ -117,7 +117,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             y: proj.y,
             width: box.width,
             height: box.height,
-            priority: data.boundsWidth,
+            priority: data.boundsWidth * data.boundsWidth,
             wasVisible,
             fontSize,
           })

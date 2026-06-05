@@ -52,17 +52,20 @@ const SHOW_THRESHOLD_PX = 35
 const HIDE_THRESHOLD_PX = 25
 const MIN_FONT_PX = 11
 const MAX_FONT_PX = 40
-const COUNTRY_FILL_RATIO = 0.40
+const DETAILED_FILL_RATIO = 0.40
+const UNIFIED_FILL_RATIO = 0.32  // tighter — show more countries on busy maps
 
 export function getLabelFontSize(
   countryWidthWorld: number,
   worldUnitsPerPixel: number,
   wasVisible: boolean,
+  layer: 'detailed' | 'unified' = 'detailed',
 ): number | null {
   if (worldUnitsPerPixel <= 0) return null
   const countryWidthPx = countryWidthWorld / worldUnitsPerPixel
   const threshold = wasVisible ? HIDE_THRESHOLD_PX : SHOW_THRESHOLD_PX
   if (countryWidthPx < threshold) return null
-  const target = countryWidthPx * COUNTRY_FILL_RATIO
+  const ratio = layer === 'unified' ? UNIFIED_FILL_RATIO : DETAILED_FILL_RATIO
+  const target = countryWidthPx * ratio
   return Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, target))
 }

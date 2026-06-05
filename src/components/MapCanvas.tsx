@@ -18,6 +18,7 @@ interface MapCanvasProps {
   minDistance: number
   maxDistance: number
   isMobile: boolean
+  isTG: boolean
   isActive: boolean
   mapCenterX: number
   mapCenterY: number
@@ -32,6 +33,7 @@ export default function MapCanvas({
   minDistance,
   maxDistance,
   isMobile,
+  isTG,
   isActive,
   mapCenterX,
   mapCenterY,
@@ -40,9 +42,13 @@ export default function MapCanvas({
   return (
     <Canvas
       camera={{ position: cameraPosition, fov, near: 0.1, far: 2000 }}
-      shadows={!isMobile}
-      dpr={isMobile ? [1, 1.25] : [1, 1.75]}
-      gl={{ antialias: !isMobile, alpha: false, powerPreference: 'high-performance' }}
+      shadows={!isMobile || isTG}
+      dpr={isMobile && !isTG ? [1, 1.25] : isTG ? [1, 2] : [1, 1.75]}
+      gl={{
+        antialias: !isMobile || isTG,
+        alpha: false,
+        powerPreference: 'high-performance',
+      }}
       style={{ background: '#0a1628' }}
       onPointerMissed={onPointerMissed}
       frameloop={isActive ? 'demand' : 'never'}
