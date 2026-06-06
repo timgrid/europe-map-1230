@@ -314,7 +314,7 @@ describe('getCurvedSpine', () => {
 
   it('exports SPINE_BAND_FRACTION and SPINE_SMOOTH_WINDOW (tunable constants)', () => {
     expect(SPINE_BAND_FRACTION).toBe(0.3)
-    expect(SPINE_SMOOTH_WINDOW).toBe(3)
+    expect(SPINE_SMOOTH_WINDOW).toBe(5)
   })
 })
 
@@ -466,8 +466,8 @@ describe('hasSharpSpineTurn', () => {
     expect(hasSharpSpineTurn(pts, 60)).toBe(false)
   })
 
-  it('exports SPINE_MAX_TURN_DEG = 30 (matches EU4-style)', () => {
-    expect(SPINE_MAX_TURN_DEG).toBe(30)
+  it('exports SPINE_MAX_TURN_DEG = 60 (loosened for curved spine)', () => {
+    expect(SPINE_MAX_TURN_DEG).toBe(60)
   })
 
   it('ignores degenerate segments (length ~ 0)', () => {
