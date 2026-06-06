@@ -72,7 +72,7 @@ const LINE_SPACING_FACTOR = 1.15  // lineSpacing = fontSize * this
  * 1500, 1530, 1600), и `hasSharpSpineTurn` (SPINE_MAX_TURN_DEG=30°)
  * становится реально полезной защитой.
  */
-const USE_CURVED_SPINE = false
+const USE_CURVED_SPINE = true
 
 interface LabelData {
   div: HTMLDivElement | null
