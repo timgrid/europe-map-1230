@@ -1,7 +1,7 @@
 // Purpose: spine (главная ось) полигона страны для рендера подписей в стиле EU4 (text-along-path) | convex hull + rotating calipers + sample
 import * as THREE from 'three'
 import { projectWorldToScreen, type Viewport } from './projection'
-import { largestPolygon, type CountryGeometry } from './geoParser'
+import { largestPolygon, pointInPolygonWithHoles, type CountryGeometry } from './geoParser'
 
 export interface SpinePoint {
   x: number
@@ -232,6 +232,203 @@ export function getCountrySpine(country: CountryGeometry, samples = 24): SpinePo
       tangentX: tx,
       tangentY: ty,
     })
+  }
+  return result
+}
+
+/**
+ * Ширина «полосы» вершин (доля от длины длинной оси), используемой
+ * `getCurvedSpine` для вычисления центроидов локального сечения.
+ *
+ * 0.3 = 30% от длины оси. Достаточно, чтобы захватить все вершины основной
+ * массы полигона, но не настолько много, чтобы полосы «сливались» в одну
+ * на вытянутых странах.
+ */
+export const SPINE_BAND_FRACTION = 0.3
+
+/**
+ * Размер окна Moving Average (в точках) для сглаживания curved spine.
+ * Должен быть нечётным, ≥ 3. Окно 3 даёт лёгкое сглаживание без потери
+ * общей формы; 5 — более агрессивное, но может «съесть» повороты.
+ */
+export const SPINE_SMOOTH_WINDOW = 3
+
+/**
+ * Расстояние от точки `start` до границы полигона в направлении `dir`
+ * (единичный вектор). Использует `pointInPolygonWithHoles` + бинарный поиск
+ * для точного нахождения границы. Требует, чтобы `start` был ВНУТРИ
+ * полигона (иначе возвращает 0).
+ *
+ * @param start    — точка старта (должна быть внутри полигона)
+ * @param dir      — единичный вектор направления
+ * @param outer    — внешнее кольцо полигона
+ * @param holes    — массив дыр
+ * @param maxProbe — начальный максимальный радиус поиска (default 1000)
+ * @returns расстояние до границы в указанном направлении
+ */
+function distanceToBoundary(
+  start: { x: number; y: number },
+  dir: { x: number; y: number },
+  outer: number[][],
+  holes: number[][][],
+  maxProbe = 1000,
+): number {
+  // Linear probe to find upper bound (doubling)
+  let upper = 1
+  let probeX = start.x + dir.x * upper
+  let probeY = start.y + dir.y * upper
+  while (pointInPolygonWithHoles(probeX, probeY, outer, holes) && upper < maxProbe) {
+    upper *= 2
+    probeX = start.x + dir.x * upper
+    probeY = start.y + dir.y * upper
+  }
+  if (upper >= maxProbe) return maxProbe
+
+  // Binary search between (upper/2) and upper
+  let lo = upper / 2
+  let hi = upper
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2
+    probeX = start.x + dir.x * mid
+    probeY = start.y + dir.y * mid
+    if (pointInPolygonWithHoles(probeX, probeY, outer, holes)) {
+      lo = mid
+    } else {
+      hi = mid
+    }
+  }
+  return (lo + hi) / 2
+}
+
+/**
+ * Curved spine (упрощённая аппроксимация straight skeleton / medial axis).
+
+/**
+ * Curved spine (упрощённая аппроксимация straight skeleton / medial axis).
+ *
+ * Алгоритм (perpendicular-chord midpoint):
+ * 1. Берём длинную ось (rotating calipers на convex hull) — это прямая
+ *    ось `getCountrySpine`.
+ * 2. Для каждой sample-точки вдоль оси кастуем луч перпендикулярно оси
+ *    в ОБЕ стороны (+n и -n) и находим расстояние до границы полигона
+ *    (бинарный поиск + `pointInPolygonWithHoles`).
+ * 3. Середина chord = axis_point + ((distMinus - distPlus) / 2) * n.
+ *    Для симметричного сечения полигона обе дистанции равны → spine
+ *    на оси. Для асимметричного (Италия, Норвегия) spine смещается
+ *    в сторону «узкой» части — в сторону медиальной оси.
+ * 4. Сглаживаем Moving Average (окно = `smoothWindow`).
+ * 5. Пересчитываем per-sample тангенс по соседним точкам сглаженной
+ *    кривой — иначе буквы textPath поедут по старому прямому тангенсу.
+ *
+ * Для выпуклых стран результат ≈ прямая (визуально неотличимо). Для
+ * вытянутых несимметричных — плавная кривая через «жирную» середину.
+ *
+ * Полный straight skeleton (Aichholzer 1995, O(n^3) Voronoi) для нашего
+ * бюджета (~1 KB gzip) — overkill. Эта функция — компромисс: ~1 KB,
+ * O(n_samples × log(distance) × pointInPolygon) на полигон, читаемая
+ * кривизна.
+ *
+ * Fallback: если полигон < 3 вершин ИЛИ convex hull < 2 точек ИЛИ длина
+ * оси < 1e-6 — возвращаем `getCountrySpine` (прямая). Гарантирует, что
+ * функция никогда не вернёт мусор для вырожденных данных.
+ *
+ * @param country       — геометрия страны
+ * @param samples       — количество точек на spine (по умолчанию 24)
+ * @param _bandFraction — зарезервировано (не используется в ray-cast версии)
+ * @param smoothWindow  — окно Moving Average (default 3, должно быть ≥ 3)
+ * @returns массив SpinePoint с плавной кривой и per-sample тангенсами
+ *
+ * @see ADR-0012-curved-spine
+ */
+export function getCurvedSpine(
+  country: CountryGeometry,
+  samples = 24,
+  smoothWindow = SPINE_SMOOTH_WINDOW,
+): SpinePoint[] {
+  const poly = largestPolygon(country)
+  if (!poly || poly.outer.length < 3) {
+    return getCountrySpine(country, samples)
+  }
+
+  const hull = convexHull(poly.outer)
+  if (hull.length < 2) {
+    return getCountrySpine(country, samples)
+  }
+
+  const { p1, p2, length } = rotatingCalipersDiameter(hull)
+  if (length < 1e-6) {
+    return getCountrySpine(country, samples)
+  }
+
+  const dx = p2[0] - p1[0]
+  const dy = p2[1] - p1[1]
+  const tx = dx / length
+  const ty = dy / length
+  // Perpendicular (90° CCW rotation of tangent)
+  const nx = -ty
+  const ny = tx
+
+  const clampedWindow = Math.max(3, smoothWindow | 0 || 3)
+  const half = Math.floor(clampedWindow / 2)
+  const n = Math.max(2, Math.floor(samples))
+
+  // For each sample, compute perpendicular-chord midpoint via ray-cast
+  const raw: Array<{ x: number; y: number }> = []
+  for (let i = 0; i < n; i++) {
+    const t = n === 1 ? 0.5 : i / (n - 1)
+    const ax = p1[0] + dx * t
+    const ay = p1[1] + dy * t
+    const start = { x: ax, y: ay }
+
+    // Cast rays in both perpendicular directions
+    const distPlus = distanceToBoundary(start, { x: nx, y: ny }, poly.outer, poly.holes)
+    const distMinus = distanceToBoundary(start, { x: -nx, y: -ny }, poly.outer, poly.holes)
+
+    // If both rays escape immediately (axis point is outside polygon),
+    // fall back to axis point
+    if (distPlus < 1e-3 && distMinus < 1e-3) {
+      raw.push({ x: ax, y: ay })
+      continue
+    }
+
+    // Midpoint shift: positive shift means axis is closer to -n side
+    // (poly is "thinner" in +n direction). Move spine point in -n direction
+    // by half the asymmetry.
+    const shift = (distMinus - distPlus) / 2
+    raw.push({ x: ax + nx * shift, y: ay + ny * shift })
+  }
+
+  // Moving Average smoothing
+  const smoothed: Array<{ x: number; y: number }> = []
+  for (let i = 0; i < n; i++) {
+    let sx = 0
+    let sy = 0
+    let count = 0
+    for (let k = -half; k <= half; k++) {
+      const idx = i + k
+      if (idx < 0 || idx >= n) continue
+      sx += raw[idx]!.x
+      sy += raw[idx]!.y
+      count++
+    }
+    smoothed.push({ x: sx / count, y: sy / count })
+  }
+
+  // Build SpinePoint[] with per-sample tangent from neighbors
+  const result: SpinePoint[] = []
+  for (let i = 0; i < n; i++) {
+    const prev = smoothed[Math.max(0, i - 1)]!
+    const next = smoothed[Math.min(n - 1, i + 1)]!
+    const tdx = next.x - prev.x
+    const tdy = next.y - prev.y
+    const tlen = Math.hypot(tdx, tdy)
+    let tnx = tx
+    let tny = ty
+    if (tlen > 1e-6) {
+      tnx = tdx / tlen
+      tny = tdy / tlen
+    }
+    result.push({ x: smoothed[i]!.x, y: smoothed[i]!.y, tangentX: tnx, tangentY: tny })
   }
   return result
 }

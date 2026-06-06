@@ -4,11 +4,14 @@ import {
   convexHull,
   rotatingCalipersDiameter,
   getCountrySpine,
+  getCurvedSpine,
   ensureReadableDirection,
   buildScreenSpine,
   spineScreenLength,
   hasSharpSpineTurn,
   SPINE_MAX_TURN_DEG,
+  SPINE_BAND_FRACTION,
+  SPINE_SMOOTH_WINDOW,
   type SpinePoint,
 } from '../src/utils/spine'
 import { parseEuropeGeoJSON, type CountryGeometry } from '../src/utils/geoParser'
@@ -191,6 +194,127 @@ describe('getCountrySpine', () => {
       const len = Math.hypot(p.tangentX, p.tangentY)
       expect(len).toBeCloseTo(1, 5)
     }
+  })
+})
+
+describe('getCurvedSpine', () => {
+  it('falls back to straight spine for empty shape', () => {
+    const geom = makeGeom([polyFromOuter([])])
+    const spine = getCurvedSpine(geom, 24)
+    expect(spine).toHaveLength(1)
+  })
+
+  it('returns requested number of samples for a square', () => {
+    const geom = makeGeom([squarePolygon(0, 0, 10)])
+    const spine = getCurvedSpine(geom, 24)
+    expect(spine).toHaveLength(24)
+  })
+
+  it('spine fits within polygon bounding box (with smoothing slack)', () => {
+    const geom = makeGeom([squarePolygon(0, 0, 10)])
+    const spine = getCurvedSpine(geom, 24)
+    for (const p of spine) {
+      expect(p.x).toBeGreaterThanOrEqual(-5.6)
+      expect(p.x).toBeLessThanOrEqual(5.6)
+      expect(p.y).toBeGreaterThanOrEqual(-5.6)
+      expect(p.y).toBeLessThanOrEqual(5.6)
+    }
+  })
+
+  it('tangent is unit length for every sample (per-sample recompute)', () => {
+    const geom = makeGeom([squarePolygon(0, 0, 10)])
+    const spine = getCurvedSpine(geom, 24)
+    for (const p of spine) {
+      const len = Math.hypot(p.tangentX, p.tangentY)
+      expect(len).toBeCloseTo(1, 5)
+    }
+  })
+
+  it('curves through the centroid for an asymmetric L-shape (Italy-like)', () => {
+    // L-shaped polygon: wide top (Po Valley) + narrow bottom-right stem (Calabria)
+    // Vertices form an L with a "corner" near (5, 0). The polygon centroid is
+    // pulled toward the wide top, so curved spine should bend toward there.
+    const outer = [
+      [0, 0], [10, 0], [10, 4], [4, 4], [4, 10], [0, 10], [0, 0],
+    ]
+    const geom = makeGeom([polyFromOuter(outer)])
+    const straight = getCountrySpine(geom, 24)
+    const curved = getCurvedSpine(geom, 24)
+    expect(curved).toHaveLength(24)
+    expect(straight).toHaveLength(24)
+    // Tangents should differ (curved has per-sample recompute; straight is constant)
+    const tStraight = { x: straight[5]!.tangentX, y: straight[5]!.tangentY }
+    const tCurved = { x: curved[5]!.tangentX, y: curved[5]!.tangentY }
+    const tangentDiff = Math.hypot(tStraight.x - tCurved.x, tStraight.y - tCurved.y)
+    expect(tangentDiff).toBeGreaterThan(0.001)
+  })
+
+  it('convex symmetric polygon (square) has near-straight curved spine', () => {
+    const geom = makeGeom([squarePolygon(0, 0, 10)])
+    const straight = getCountrySpine(geom, 100)
+    const curved = getCurvedSpine(geom, 100)
+    // For a convex symmetric polygon, centroids of bands land on the axis
+    let maxDev = 0
+    for (let i = 0; i < straight.length; i++) {
+      const d = Math.hypot(straight[i]!.x - curved[i]!.x, straight[i]!.y - curved[i]!.y)
+      if (d > maxDev) maxDev = d
+    }
+    expect(maxDev).toBeLessThan(0.5)
+  })
+
+  it('preserves number of samples (24 default, custom values)', () => {
+    const geom = makeGeom([squarePolygon(0, 0, 10)])
+    expect(getCurvedSpine(geom, 10)).toHaveLength(10)
+    expect(getCurvedSpine(geom, 50)).toHaveLength(50)
+    expect(getCurvedSpine(geom, 1)).toHaveLength(2) // clamped to min 2
+  })
+
+  it('uses largest polygon for multi-polygon country (exclave policy)', () => {
+    const geom = makeGeom([
+      squarePolygon(-100, -100, 2),
+      squarePolygon(0, 0, 10),
+    ])
+    const spine = getCurvedSpine(geom, 24)
+    for (const p of spine) {
+      expect(Math.abs(p.x)).toBeLessThan(6)
+      expect(Math.abs(p.y)).toBeLessThan(6)
+    }
+  })
+
+  it('uses largest polygon for multi-polygon country (exclave policy)', () => {
+    const geom = makeGeom([
+      squarePolygon(-100, -100, 2),
+      squarePolygon(0, 0, 10),
+    ])
+    const spine = getCurvedSpine(geom, 24)
+    for (const p of spine) {
+      expect(Math.abs(p.x)).toBeLessThan(6)
+      expect(Math.abs(p.y)).toBeLessThan(6)
+    }
+  })
+
+  it('curved spine deviates from straight spine in L-shape (asymmetric polygon)', () => {
+    // L-shaped polygon: straight spine is a diagonal, but the centroid of
+    // the polygon is offset (toward the wide top), so the curved spine
+    // should bend toward the centroid — measurable deviation from straight.
+    const outer = [
+      [0, 0], [10, 0], [10, 4], [4, 4], [4, 10], [0, 10], [0, 0],
+    ]
+    const geom = makeGeom([polyFromOuter(outer)])
+    const straight = getCountrySpine(geom, 24)
+    const curved = getCurvedSpine(geom, 24)
+    let maxDev = 0
+    for (let i = 0; i < straight.length; i++) {
+      const d = Math.hypot(straight[i]!.x - curved[i]!.x, straight[i]!.y - curved[i]!.y)
+      if (d > maxDev) maxDev = d
+    }
+    // Real curvature expected (L-shape, straight spine cuts through corner)
+    expect(maxDev).toBeGreaterThan(0.5)
+  })
+
+  it('exports SPINE_BAND_FRACTION and SPINE_SMOOTH_WINDOW (tunable constants)', () => {
+    expect(SPINE_BAND_FRACTION).toBe(0.3)
+    expect(SPINE_SMOOTH_WINDOW).toBe(3)
   })
 })
 

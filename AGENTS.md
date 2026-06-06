@@ -35,7 +35,7 @@ GitHub Pages + Telegram Mini App.
 npm ci              # установка зависимостей (запускает husky init)
 npm run dev         # dev-сервер с HMR
 npm run build       # tsc -b && vite build → dist/
-npm test            # vitest run (220 тестов, ~0.7s)
+npm test            # vitest run (231 тест, ~0.7s)
 npm run test:watch  # vitest в режиме watch
 npm run test:coverage
 npm run lint        # eslint
@@ -150,7 +150,7 @@ europe-map-1230/
 - Размер JSON-данных: ≤150 КБ на год (текущее: 100-145 КБ).
 - Время `JSON.parse` + `THREE.Shape` конструктор: ≤500мс на десктопе.
 - FCP (First Contentful Paint): ≤2с на 3G.
-- Bundle size: initial 1.20 МБ (327 КБ gzip) + lazy 175 КБ (55 КБ gzip) для R3F-сцены.
+- Bundle size: initial 1.20 МБ (328 КБ gzip) + lazy 175 КБ (55 КБ gzip) для R3F-сцены.
   Three.js + drei вынесены в `MapCanvas` через `React.lazy` + `<Suspense>` —
   initial bundle уменьшился на ~54 КБ gzip. FCP улучшен.
 
@@ -159,7 +159,7 @@ europe-map-1230/
 - `tests/adr.test.ts` — 7 тестов структуры ADR
 - `tests/commits.test.ts` — 3 теста (commitlint config + hook + история с cutoff `9f7ca3d`)
 - `tests/geoParser.test.ts` — 23 теста (геометрия + getCountryBounds + getInteriorPoint)
-- `tests/spine.test.ts` — 44 теста (convex hull, rotating calipers, getCountrySpine, ensureReadableDirection, spineScreenLength, buildScreenSpine, hasSharpSpineTurn)
+- `tests/spine.test.ts` — 55 тестов (convex hull, rotating calipers, getCountrySpine, getCurvedSpine, ensureReadableDirection, spineScreenLength, buildScreenSpine, hasSharpSpineTurn)
 - `tests/camera.test.ts` — 15 тестов расчёта камеры (getMapSize, getInitialCameraConfig)
 - `tests/projection.test.ts` — 29 тестов (projectWorldToScreen + getLabelFontSize + getTextPathFontSize)
 - `tests/labelLayout.test.ts` — 16 тестов (estimateLabelBox, boxesIntersect, resolveLabelOverlaps с бонусом стабильности)

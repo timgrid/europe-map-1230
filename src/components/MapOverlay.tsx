@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
-import { getCountrySpine, buildScreenSpine, ensureReadableDirection, hasSharpSpineTurn, type SpinePoint } from '../utils/spine'
+import { getCountrySpine, getCurvedSpine, buildScreenSpine, ensureReadableDirection, hasSharpSpineTurn, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
 import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../utils/projection'
 import {
@@ -58,6 +58,21 @@ const UNIFIED_LABEL_IDS = new Set([
 
 const MAX_LABEL_LINES = 2  // up to 2 lines per label (EU4-style)
 const LINE_SPACING_FACTOR = 1.15  // lineSpacing = fontSize * this
+
+/**
+ * Переключатель spine: `true` = curved (perpendicular-chord midpoint +
+ * Moving Average, см. `getCurvedSpine`), `false` = straight (diameter of
+ * convex hull via rotating calipers, `getCountrySpine`).
+ *
+ * По умолчанию `false` — backward compat: прямая ось даёт стабильный
+ * предсказуемый результат для всех 50+ стран, уже протестированный в
+ * проде. Включить curved: см. ADR-0012 — добавляет плавную кривизну для
+ * асимметричных стран (Италия, Норвегия), но требует визуальной проверки
+ * на каждом годе (800, 900, 1000, 1100, 1200, 1279, 1300, 1400, 1492,
+ * 1500, 1530, 1600), и `hasSharpSpineTurn` (SPINE_MAX_TURN_DEG=30°)
+ * становится реально полезной защитой.
+ */
+const USE_CURVED_SPINE = false
 
 interface LabelData {
   div: HTMLDivElement | null
@@ -139,7 +154,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         const info = getCountryInfo(c.id)
         const bounds = getCountryBounds(c)
         const interior = getInteriorPoint(c)
-        const spine = getCountrySpine(c, 24)
+        const spine = USE_CURVED_SPINE ? getCurvedSpine(c, 24) : getCountrySpine(c, 24)
         data.country = c
         data.displayName = info?.name ?? c.name
         data.shortName = info?.shortName
