@@ -1,9 +1,13 @@
-// Purpose: тесты overlay pipeline helpers (classifyLabelMode, isSpineEligible, setAttrIfChanged)
+// Purpose: тесты overlay pipeline helpers (classifyLabelMode, isSpineEligible, setAttrIfChanged, getRenderMode)
 import { describe, it, expect, vi } from 'vitest'
 import {
   classifyLabelMode,
   isSpineEligible,
   setAttrIfChanged,
+  getRenderMode,
+  ZOOM_MAX_POLITICAL,
+  ZOOM_CLOSE_CULLING,
+  SCREEN_AREA_MIN_THRESHOLD,
   TEXTPATH_MIN_SCREEN_PX,
   TEXTPATH_MIN_ASPECT,
 } from '../src/utils/overlayPipeline'
@@ -119,5 +123,110 @@ describe('overlayPipeline pipeline integration', () => {
         expect(s.centerVisible).toBe(false)
       }
     }
+  })
+})
+
+describe('getRenderMode (Clausewitz culling state machine)', () => {
+  // Constants from defines.lua equivalents
+  const POLITICAL_LOW = ZOOM_CLOSE_CULLING + 100  // 180
+
+  it('returns world_metric when camera farther than ZOOM_MAX_POLITICAL', () => {
+    expect(getRenderMode({
+      cameraDistance: ZOOM_MAX_POLITICAL + 1,
+      screenSpineLength: 500,
+      screenArea: 10000,
+    })).toBe('world_metric')
+    expect(getRenderMode({
+      cameraDistance: 2000,
+      screenSpineLength: 100,
+      screenArea: 5000,
+    })).toBe('world_metric')
+  })
+
+  it('returns point when screenArea below SCREEN_AREA_MIN_THRESHOLD', () => {
+    expect(getRenderMode({
+      cameraDistance: POLITICAL_LOW,
+      screenSpineLength: 500,
+      screenArea: SCREEN_AREA_MIN_THRESHOLD - 1,
+    })).toBe('point')
+    // Edge: tiny country, mid zoom
+    expect(getRenderMode({
+      cameraDistance: 300,
+      screenSpineLength: 30,  // spine too short too
+      screenArea: 100,
+    })).toBe('point')
+  })
+
+  it('returns hidden when camera closer than ZOOM_CLOSE_CULLING', () => {
+    expect(getRenderMode({
+      cameraDistance: ZOOM_CLOSE_CULLING - 1,
+      screenSpineLength: 500,
+      screenArea: 10000,
+    })).toBe('hidden')
+    expect(getRenderMode({
+      cameraDistance: 0,
+      screenSpineLength: 1000,
+      screenArea: 100000,
+    })).toBe('hidden')
+  })
+
+  it('returns textpath when in political range AND spine eligible', () => {
+    expect(getRenderMode({
+      cameraDistance: POLITICAL_LOW,
+      screenSpineLength: TEXTPATH_MIN_SCREEN_PX + 10,
+      screenArea: SCREEN_AREA_MIN_THRESHOLD * 4,
+      spineEligible: true,
+    })).toBe('textpath')
+    // auto-detect eligibility from screenSpineLength when not provided
+    expect(getRenderMode({
+      cameraDistance: 300,
+      screenSpineLength: 200,
+      screenArea: 10000,
+    })).toBe('textpath')
+  })
+
+  it('returns point when in political range but spine not eligible', () => {
+    expect(getRenderMode({
+      cameraDistance: POLITICAL_LOW,
+      screenSpineLength: 50,
+      screenArea: 10000,
+      spineEligible: false,
+    })).toBe('point')
+    // spineEligible=undefined but screenSpineLength < threshold
+    expect(getRenderMode({
+      cameraDistance: 300,
+      screenSpineLength: 30,
+      screenArea: 10000,
+    })).toBe('point')
+  })
+
+  it('priority order: world_metric > point > hidden > textpath', () => {
+    // world_metric wins even if other conditions also true
+    expect(getRenderMode({
+      cameraDistance: 2000,           // > ZOOM_MAX_POLITICAL
+      screenSpineLength: 1000,
+      screenArea: 100,                // < THRESHOLD
+    })).toBe('world_metric')
+
+    // point wins over hidden when both true
+    expect(getRenderMode({
+      cameraDistance: 0,              // < ZOOM_CLOSE_CULLING
+      screenSpineLength: 1000,
+      screenArea: 100,                // < THRESHOLD
+    })).toBe('point')
+
+    // hidden wins over textpath at very close zoom
+    expect(getRenderMode({
+      cameraDistance: 0,              // < ZOOM_CLOSE_CULLING
+      screenSpineLength: 500,
+      screenArea: 100000,
+      spineEligible: true,
+    })).toBe('hidden')
+  })
+
+  it('exports Clausewitz-equivalent constants', () => {
+    expect(ZOOM_MAX_POLITICAL).toBe(800)
+    expect(ZOOM_CLOSE_CULLING).toBe(80)
+    expect(SCREEN_AREA_MIN_THRESHOLD).toBe(80 * 80)
   })
 })

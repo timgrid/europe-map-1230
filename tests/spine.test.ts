@@ -9,9 +9,18 @@ import {
   buildScreenSpine,
   spineScreenLength,
   hasSharpSpineTurn,
+  getEU4FontSize,
+  getEU4LetterSpacing,
   SPINE_MAX_TURN_DEG,
   SPINE_BAND_FRACTION,
   SPINE_SMOOTH_WINDOW,
+  MAP_NAME_K_FILL,
+  MAP_NAME_MIN_SIZE,
+  MAP_NAME_MAX_SIZE,
+  MAP_NAME_GUI_SCALE,
+  MAP_NAME_BORDER_CLAMP,
+  MAP_NAME_MAX_LETTER_SPACING,
+  MAP_NAME_MIN_LETTER_SPACING,
   type SpinePoint,
 } from '../src/utils/spine'
 import { parseEuropeGeoJSON, type CountryGeometry } from '../src/utils/geoParser'
@@ -315,6 +324,98 @@ describe('getCurvedSpine', () => {
   it('exports SPINE_BAND_FRACTION and SPINE_SMOOTH_WINDOW (tunable constants)', () => {
     expect(SPINE_BAND_FRACTION).toBe(0.3)
     expect(SPINE_SMOOTH_WINDOW).toBe(5)
+  })
+})
+
+describe('getEU4FontSize (Clausewitz formula)', () => {
+  it('returns minSize when spineLen or numChars <= 0', () => {
+    expect(getEU4FontSize(0, 10)).toBe(MAP_NAME_MIN_SIZE * MAP_NAME_GUI_SCALE)
+    expect(getEU4FontSize(100, 0)).toBe(MAP_NAME_MIN_SIZE * MAP_NAME_GUI_SCALE)
+    expect(getEU4FontSize(-5, 5)).toBe(MAP_NAME_MIN_SIZE * MAP_NAME_GUI_SCALE)
+  })
+
+  it('returns minSize for very short spine or very long name', () => {
+    // 80px / 50 chars = 1.6 → clamped to min
+    expect(getEU4FontSize(80, 50)).toBe(MAP_NAME_MIN_SIZE)
+    // 50px / 30 chars = 1.25 → clamped to min
+    expect(getEU4FontSize(50, 30)).toBe(MAP_NAME_MIN_SIZE)
+  })
+
+  it('returns maxSize for long spine + short name', () => {
+    // 800px * 0.75 / 5 chars = 120 → clamped to max
+    expect(getEU4FontSize(800, 5)).toBe(MAP_NAME_MAX_SIZE)
+    // 1000px * 0.75 / 3 chars = 250 → clamped to max
+    expect(getEU4FontSize(1000, 3)).toBe(MAP_NAME_MAX_SIZE)
+  })
+
+  it('returns ideal in middle range: spineLen * K_fill / numChars', () => {
+    // 200px * 0.75 / 10 chars = 15
+    expect(getEU4FontSize(200, 10)).toBeCloseTo(15, 5)
+    // 300px * 0.75 / 10 chars = 22.5 → clamped to max=22
+    expect(getEU4FontSize(300, 10)).toBe(MAP_NAME_MAX_SIZE)
+  })
+
+  it('applies GUI_scale multiplicatively', () => {
+    // 200px * 0.75 / 10 = 15; with GUI_scale=2 → 30
+    expect(getEU4FontSize(200, 10, { guiScale: 2 })).toBe(30)
+    // GUI_scale * minSize when clamped
+    expect(getEU4FontSize(0, 10, { guiScale: 1.5 })).toBe(MAP_NAME_MIN_SIZE * 1.5)
+  })
+
+  it('clamps kFill to (0, 1] (defensive)', () => {
+    // kFill=10 → clamped to 1 → behaves like 200/10=20
+    expect(getEU4FontSize(200, 10, { kFill: 10 })).toBeCloseTo(20, 5)
+    // kFill=0 → clamped to 0.01 → 200*0.01/10 = 0.2 → clamped to min
+    expect(getEU4FontSize(200, 10, { kFill: 0 })).toBe(MAP_NAME_MIN_SIZE)
+  })
+
+  it('exports EU4 constants for defines.lua parity', () => {
+    expect(MAP_NAME_K_FILL).toBe(0.75)
+    expect(MAP_NAME_MIN_SIZE).toBe(11)
+    expect(MAP_NAME_MAX_SIZE).toBe(22)
+    expect(MAP_NAME_GUI_SCALE).toBe(1.0)
+    expect(MAP_NAME_BORDER_CLAMP).toBe(0.1)
+    expect(MAP_NAME_MAX_LETTER_SPACING).toBe(2.0)
+    expect(MAP_NAME_MIN_LETTER_SPACING).toBe(0.2)
+  })
+})
+
+describe('getEU4LetterSpacing (Clausewitz font formula)', () => {
+  it('returns 0 for single-char names (no gaps to fill)', () => {
+    expect(getEU4LetterSpacing(200, 1, 10)).toBe(0)
+  })
+
+  it('returns 0 for spineLen <= 0 or fontWidth <= 0', () => {
+    expect(getEU4LetterSpacing(0, 10, 10)).toBe(0)
+    expect(getEU4LetterSpacing(200, 10, 0)).toBe(0)
+    expect(getEU4LetterSpacing(-5, 10, 10)).toBe(0)
+  })
+
+  it('returns ideal in middle range: spineLen * K_fill / (N-1)', () => {
+    // 200px * 0.75 / 9 = 16.67
+    // min = 10 * 0.2 = 2, max = 10 * 2.0 = 20 → 16.67 in range
+    expect(getEU4LetterSpacing(200, 10, 10)).toBeCloseTo(16.667, 2)
+  })
+
+  it('clamps to fontWidth * 0.2 (min) for very long names', () => {
+    // 100px * 0.75 / 99 chars = 0.76 → below min (10 * 0.2 = 2) → returns 2
+    expect(getEU4LetterSpacing(100, 100, 10)).toBeCloseTo(2.0, 5)
+  })
+
+  it('clamps to fontWidth * 2.0 (max) for very short names + long spine', () => {
+    // 500px * 0.75 / 1 = 375 → above max (10 * 2 = 20) → returns 20
+    expect(getEU4LetterSpacing(500, 2, 10)).toBe(20)
+  })
+
+  it('respects custom minStepMul and maxStepMul', () => {
+    // minStepMul=0.5 → min = 5; maxStepMul=1.5 → max = 15
+    // 200 * 0.75 / 9 = 16.67 → above 15 → returns 15
+    expect(getEU4LetterSpacing(200, 10, 10, { minStepMul: 0.5, maxStepMul: 1.5 })).toBe(15)
+  })
+
+  it('clamps kFill to (0, 1] (defensive)', () => {
+    // kFill=5 → clamped to 1 → 200/9 = 22.22, max=20 → 20
+    expect(getEU4LetterSpacing(200, 10, 10, { kFill: 5 })).toBe(20)
   })
 })
 

@@ -35,7 +35,7 @@ GitHub Pages + Telegram Mini App.
 npm ci              # установка зависимостей (запускает husky init)
 npm run dev         # dev-сервер с HMR
 npm run build       # tsc -b && vite build → dist/
-npm test            # vitest run (231 тест, ~0.7s)
+npm test            # vitest run (256 тестов, ~1.0s)
 npm run test:watch  # vitest в режиме watch
 npm run test:coverage
 npm run lint        # eslint
@@ -159,13 +159,13 @@ europe-map-1230/
 - `tests/adr.test.ts` — 7 тестов структуры ADR
 - `tests/commits.test.ts` — 3 теста (commitlint config + hook + история с cutoff `9f7ca3d`)
 - `tests/geoParser.test.ts` — 23 теста (геометрия + getCountryBounds + getInteriorPoint)
-- `tests/spine.test.ts` — 55 тестов (convex hull, rotating calipers, getCountrySpine, getCurvedSpine, ensureReadableDirection, spineScreenLength, buildScreenSpine, hasSharpSpineTurn)
+- `tests/spine.test.ts` — 69 тестов (convex hull, rotating calipers, getCountrySpine, getCurvedSpine, ensureReadableDirection, spineScreenLength, buildScreenSpine, hasSharpSpineTurn, getEU4FontSize, getEU4LetterSpacing)
 - `tests/camera.test.ts` — 15 тестов расчёта камеры (getMapSize, getInitialCameraConfig)
-- `tests/projection.test.ts` — 29 тестов (projectWorldToScreen + getLabelFontSize + getTextPathFontSize)
+- `tests/projection.test.ts` — 29 тестов (projectWorldToScreen + getLabelFontSize)
 - `tests/labelLayout.test.ts` — 16 тестов (estimateLabelBox, boxesIntersect, resolveLabelOverlaps с бонусом стабильности)
 - `tests/overlay.test.ts` — 7 тестов (pickFittingName)
-- `tests/overlayPipeline.test.ts` — 16 тестов (classifyLabelMode, isSpineEligible, setAttrIfChanged)
-- `tests/textPathWrap.test.ts` — 36 тестов (wrapBalanced, getLineOffsets, shiftSpineByNormal, isSpineInsidePolygon, shouldUseMultiLine, getTextPathSpineOffset)
+- `tests/overlayPipeline.test.ts` — 23 теста (classifyLabelMode, isSpineEligible, setAttrIfChanged, getRenderMode)
+- `tests/textPathWrap.test.ts` — 39 тестов (wrapBalanced, getLineOffsets, shiftSpineByNormal, isSpineInsidePolygon, shouldUseMultiLine, getTextPathSpineOffset с borderClamp)
 - `tests/schema.test.ts` — 7 тестов Zod-валидации
 - `tests/telegram.test.ts` — 17 тестов TG-утилит (parseSDKVersion, isFullscreenSupported, etc.)
 - `vitest.config.ts` — Node environment, coverage на `src/utils/**` и `src/data/**`

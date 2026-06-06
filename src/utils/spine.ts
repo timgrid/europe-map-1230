@@ -254,6 +254,180 @@ export function getCountrySpine(country: CountryGeometry, samples = 24): SpinePo
 export const SPINE_BAND_FRACTION = 0.3
 
 /**
+ * K_fill — коэффициент заполнения оси текстом, аналог `K_fill` из
+ * `common/defines.lua` (раздел NGraphics) движка Clausewitz. Определяет,
+ * какую долю длины экранной оси (`screenSpineLength`) должен занимать текст.
+ *
+ * 0.75 — компромисс между EU4 (0.7-0.85) и читаемостью на маленьких экранах.
+ * При K_fill=0.7 текст «сжимается» (много пустого места), при 0.85 — буквы
+ * могут задевать соседние страны на крупном zoom.
+ */
+export const MAP_NAME_K_FILL = 0.75
+
+/**
+ * Минимальный размер шрифта в пикселях. Аналог `MAP_NAME_MIN_SIZE` из
+ * defines.lua (10-12 в EU4). Ниже этого порога:
+ * - textPath: fallback на point-label
+ * - point-label: скрыть (HIDDEN)
+ */
+export const MAP_NAME_MIN_SIZE = 11
+
+/**
+ * Максимальный размер шрифта в пикселях. Аналог `MAP_NAME_MAX_SIZE` из
+ * defines.lua (60-72 в EU4 — там можно показывать «РОССИЯ» во весь экран).
+ *
+ * У нас 22 потому что:
+ * 1. Bundle budget: bundle ~328 KB, на 22px текст всё ещё читаем
+ * 2. Мобильный TG viewport: 22px достаточно для типичной карты
+ * 3. На больших экранах (4K) масштабирует CSS-ом через `font-size: 0.65em`
+ *
+ * Для мира целиком (WORLD_METRIC mode) можно поднять до 60+ через
+ * отдельный getWorldMetricFontSize (если потребуется).
+ */
+export const MAP_NAME_MAX_SIZE = 22
+
+/**
+ * Глобальный множитель интерфейса, аналог `GUI_scale` из settings.txt.
+ * 1.0 = стандартный масштаб. 1.2 / 1.5 = крупный UI.
+ *
+ * Используется в `getEU4FontSize` для финального умножения размера.
+ */
+export const MAP_NAME_GUI_SCALE = 1.0
+
+/**
+ * MAP_NAME_BORDER_CLAMP — минимальный отступ текста от границы полигона
+ * (аналог `MAP_NAME_BORDER_CLAMP = 0.1` из defines.lua EU4).
+ *
+ * Используется в `getTextPathSpineOffset`: если spine находится на границе
+ * (т.е. дистанция до границы < clamp * halfWidth), алгоритм ищет
+ * смещение по нормали чтобы отодвинуть spine внутрь полигона.
+ *
+ * 0.1 = 10% от halfWidth — стандартный EU4-порог, обеспечивающий что
+ * буквы не «прилипают» к границе страны.
+ */
+export const MAP_NAME_BORDER_CLAMP = 0.1
+
+/**
+ * MAP_NAME_MAX_LETTER_SPACING — ограничитель шага разрядки из defines.lua
+ * (обычно 2.0-2.5 в EU4). Если расчётный шаг между буквами превышает
+ * W_font_max * MAX, буквы перестают раздвигаться — текст просто
+ * центрируется. Защищает от «рассыпания» слова на отдельные буквы.
+ */
+export const MAP_NAME_MAX_LETTER_SPACING = 2.0
+
+/**
+ * Минимальная допустимая ширина символа для letter-spacing (нижняя граница
+ * `Clamp` в формуле Step). Аналог `W_font_max * 0.2` в EU4 (20% от
+ * ширины самой широкой буквы). При W<W_max*0.2 буквы сливаются.
+ */
+export const MAP_NAME_MIN_LETTER_SPACING = 0.2
+
+export interface EU4FontSizeOptions {
+  /** Коэффициент заполнения оси (default 0.75) */
+  kFill?: number
+  /** Минимальный размер в px (default 11) */
+  minSize?: number
+  /** Максимальный размер в px (default 22) */
+  maxSize?: number
+  /** Множитель интерфейса (default 1.0) */
+  guiScale?: number
+}
+
+/**
+ * EU4-формула расчёта размера шрифта из defines.lua (раздел NGraphics):
+ *
+ *   Size = Clamp(L_spine * K_fill / N_chars, MinSize, MaxSize) * GUI_scale
+ *
+ * Где:
+ * - L_spine     — длина экранной оси (пиксели)
+ * - K_fill      — доля оси, занимаемая текстом (0.7-0.85 в EU4, у нас 0.75)
+ * - N_chars     — количество символов в названии (включая пробелы)
+ * - MinSize     — MAP_NAME_MIN_SIZE (10-12 в EU4, у нас 11)
+ * - MaxSize     — MAP_NAME_MAX_SIZE (60-72 в EU4, у нас 22)
+ * - GUI_scale   — глобальный множитель UI (default 1.0)
+ *
+ * Семантика: текст пытается занять 75% длины оси, делённые поровну между
+ * символами. Чем длиннее название — тем мельче буквы. Для коротких имён
+ * (например, «Перу») на длинной оси получается крупный шрифт.
+ *
+ * Защитные проверки:
+ * - numChars <= 0 → fallback на minSize
+ * - spineLen <= 0 → fallback на minSize
+ * - K_fill зажат в (0, 1]
+ * - guiScale зажат в (0, 4]
+ *
+ * @param spineLen — длина экранной оси в пикселях
+ * @param numChars — длина строки (включая пробелы)
+ * @param opts     — опции (см. EU4FontSizeOptions)
+ * @returns размер шрифта в пикселях, зажат в [minSize, maxSize] * guiScale
+ */
+export function getEU4FontSize(
+  spineLen: number,
+  numChars: number,
+  opts: EU4FontSizeOptions = {},
+): number {
+  const kFill = Math.max(0.01, Math.min(1, opts.kFill ?? MAP_NAME_K_FILL))
+  const minSize = opts.minSize ?? MAP_NAME_MIN_SIZE
+  const maxSize = opts.maxSize ?? MAP_NAME_MAX_SIZE
+  const guiScale = Math.max(0.01, Math.min(4, opts.guiScale ?? MAP_NAME_GUI_SCALE))
+
+  if (spineLen <= 0 || numChars <= 0) return minSize * guiScale
+
+  const ideal = (spineLen * kFill) / numChars
+  return Math.max(minSize, Math.min(maxSize, ideal)) * guiScale
+}
+
+export interface EU4LetterSpacingOptions {
+  /** Коэффициент заполнения (default 0.75) */
+  kFill?: number
+  /** Множитель минимального шага (default 0.2) */
+  minStepMul?: number
+  /** Множитель максимального шага (default 2.0) */
+  maxStepMul?: number
+}
+
+/**
+ * EU4-формула трекинга/разрядки из .font-файлов:
+ *
+ *   Step = Clamp(L_spine * K_fill / (N_chars - 1), W_font_max * 0.2,
+ *                W_font_max * MAP_NAME_MAX_LETTER_SPACING)
+ *
+ * Где:
+ * - L_spine     — длина экранной оси
+ * - K_fill      — доля заполнения (default 0.75)
+ * - N_chars-1   — количество ПРОМЕЖУТКОВ между символами
+ * - W_font_max  — номинальная ширина самой широкой буквы (≈ fontSize * 0.7)
+ * - 0.2         — нижняя граница: 20% от ширины буквы (буквы не сливаются)
+ * - 2.0         — верхняя граница: 2x ширины буквы (слово не «рассыпается»)
+ *
+ * Возвращает шаг в пикселях. Применяется как `letter-spacing` для SVG textPath
+ * и DOM div. При numChars <= 1 возвращает 0 (промежутков нет).
+ *
+ * @param spineLen    — длина экранной оси в пикселях
+ * @param numChars    — длина строки (>= 1)
+ * @param fontWidth   — ширина самой широкой буквы (обычно fontSize * 0.7)
+ * @param opts        — опции (см. EU4LetterSpacingOptions)
+ * @returns шаг в пикселях, зажат в [fontWidth*0.2, fontWidth*2.0]
+ */
+export function getEU4LetterSpacing(
+  spineLen: number,
+  numChars: number,
+  fontWidth: number,
+  opts: EU4LetterSpacingOptions = {},
+): number {
+  const kFill = Math.max(0.01, Math.min(1, opts.kFill ?? MAP_NAME_K_FILL))
+  const minMul = Math.max(0.05, Math.min(1, opts.minStepMul ?? MAP_NAME_MIN_LETTER_SPACING))
+  const maxMul = Math.max(minMul, Math.min(5, opts.maxStepMul ?? MAP_NAME_MAX_LETTER_SPACING))
+
+  if (numChars <= 1 || spineLen <= 0 || fontWidth <= 0) return 0
+
+  const ideal = (spineLen * kFill) / (numChars - 1)
+  const min = fontWidth * minMul
+  const max = fontWidth * maxMul
+  return Math.max(min, Math.min(max, ideal))
+}
+
+/**
  * Размер окна Moving Average (в точках) для сглаживания curved spine.
  * Должен быть нечётным, ≥ 3. Окно 5 — компромисс между агрессивным
  * сглаживанием (съедает повороты) и лёгким (не убирает шум вершин).
@@ -269,6 +443,10 @@ export const SPINE_SMOOTH_WINDOW = 5
  * для точного нахождения границы. Требует, чтобы `start` был ВНУТРИ
  * полигона (иначе возвращает 0).
  *
+ * Экспортируется, потому что используется и в `getCurvedSpine`, и в
+ * `getTextPathSpineOffset` (textPathWrap.ts) для вычисления
+ * `MAP_NAME_BORDER_CLAMP * halfWidth`.
+ *
  * @param start    — точка старта (должна быть внутри полигона)
  * @param dir      — единичный вектор направления
  * @param outer    — внешнее кольцо полигона
@@ -276,7 +454,7 @@ export const SPINE_SMOOTH_WINDOW = 5
  * @param maxProbe — начальный максимальный радиус поиска (default 1000)
  * @returns расстояние до границы в указанном направлении
  */
-function distanceToBoundary(
+export function distanceToBoundary(
   start: { x: number; y: number },
   dir: { x: number; y: number },
   outer: number[][],

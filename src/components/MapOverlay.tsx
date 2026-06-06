@@ -3,9 +3,9 @@ import { useEffect, useMemo, useRef } from 'react'
 import * as THREE from 'three'
 import { getCountryInfo } from '../data/countriesData'
 import { getCountryBounds, getInteriorPoint, type CountryGeometry } from '../utils/geoParser'
-import { getCountrySpine, getCurvedSpine, buildScreenSpine, ensureReadableDirection, hasSharpSpineTurn, type SpinePoint } from '../utils/spine'
+import { getCountrySpine, getCurvedSpine, buildScreenSpine, ensureReadableDirection, hasSharpSpineTurn, getEU4FontSize, getEU4LetterSpacing, type SpinePoint } from '../utils/spine'
 import { cameraSnapshot, getProjectionCamera } from '../state/cameraState'
-import { projectWorldToScreen, getLabelFontSize, getTextPathFontSize } from '../utils/projection'
+import { projectWorldToScreen, getLabelFontSize } from '../utils/projection'
 import {
   estimateLabelBox,
   resolveLabelOverlaps,
@@ -204,7 +204,10 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
   ): void {
     const divEl = data.div!
     const screenLen = screenSpine.screenLen
-    const textPathFontSize = getTextPathFontSize(screenLen) ?? 11
+    // EU4 physics: fontSize = Clamp(L·K_fill/N, Min, Max)·GUI_scale
+    // (N = number of characters in the longest line)
+    const numCharsProbe = Math.max(1, data.displayName.length)
+    const textPathFontSize = getEU4FontSize(screenLen, numCharsProbe)
     const lineSpacing = textPathFontSize * LINE_SPACING_FACTOR
 
     // Decide lines: try single → multi → shortName
@@ -247,6 +250,15 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
       }
     }
 
+    // EU4 letter-spacing: step = Clamp(L·K_fill/(N-1), W·0.2, W·MAX_LETTER_SPACING)
+    // (N = number of characters in the longest line, W = fontSize)
+    const longestLineLen = lines.reduce((max, ln) => Math.max(max, ln.length), 0)
+    const textPathLetterSpacing = getEU4LetterSpacing(
+      screenLen,
+      Math.max(1, longestLineLen),
+      textPathFontSize,
+    )
+
     // Render each line (relative to the normal-shifted base spine)
     const offsets = getLineOffsets(lines.length, lineSpacing)
     for (let i = 0; i < MAX_LABEL_LINES; i++) {
@@ -261,6 +273,7 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         const d = buildPathD(readable)
         pathEl.setAttribute('d', d)
         textEl.setAttribute('font-size', String(textPathFontSize))
+        textEl.setAttribute('letter-spacing', String(textPathLetterSpacing))
         textPathEl.textContent = lines[i]!
         textEl.style.display = ''
       } else {
@@ -335,6 +348,14 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
     divEl.style.left = `${cand.x}px`
     divEl.style.top = `${cand.y}px`
     divEl.style.fontSize = `${fontSize}px`
+    // EU4 letter-spacing: step = Clamp(L·K_fill/(N-1), W·0.2, W·MAX_LETTER_SPACING)
+    // (N = total characters across all lines, W = fontSize)
+    const pointLetterSpacing = getEU4LetterSpacing(
+      countryScreenWidth,
+      Math.max(1, lines.join('').length),
+      fontSize,
+    )
+    divEl.style.letterSpacing = `${pointLetterSpacing}px`
     setAttrIfChanged(divEl, 'data-fontsize', String(fontSize), { value: data.lastFontSize })
     data.lastFontSize = String(fontSize)
     setAttrIfChanged(divEl, 'data-render-name', lines.join(' | '), { value: data.lastRenderNameAttr })
@@ -511,7 +532,6 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
                 strokeLinejoin="round"
                 strokeLinecap="round"
                 paintOrder="stroke fill"
-                letterSpacing="0.7"
                 style={{ display: 'none' }}
               >
                 <textPath
@@ -582,7 +602,6 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
               fontFamily: 'Georgia, serif',
               textShadow: '0 2px 4px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.7)',
               color: isSelected ? '#fde68a' : 'rgba(255, 245, 220, 0.95)',
-              letterSpacing: '0.4px',
               lineHeight: 1.15,
               display: 'none',
             }}

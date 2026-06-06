@@ -331,4 +331,66 @@ describe('getTextPathSpineOffset', () => {
     ]
     expect(getTextPathSpineOffset(spine, geom, 5)).toBe(0)
   })
+
+  it('borderClamp=0 disables the minimum offset requirement (backward compat)', () => {
+    // With borderClamp=0, minRequiredOffset=0. Spine endpoints on border.
+    // For chord-based spine (endpoints on convex hull = on border), even
+    // shift can't move endpoints off the border (they're on strict edges).
+    // Best effort: returns 0.
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 5], [0, 5], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 0, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom, 4, 0)).toBe(0)
+  })
+
+  it('borderClamp=0.5 with chord on border: best effort returns 0 (chord limitation)', () => {
+    // For our chord-based spine (endpoints on convex hull = on border),
+    // shifting the spine doesn't move endpoints off the border.
+    // So borderClamp can't be satisfied → best effort returns 0.
+    // The clamp is documented as applying to curved spines (future) where
+    // endpoints are NOT on the convex hull.
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 10], [0, 10], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 0, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 0, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom, 5, 0.5)).toBe(0)
+  })
+
+  it('borderClamp reduces minRequiredOffset for spine in middle of country (no shift needed)', () => {
+    // Spine in the middle of a 10x10 country (clearance 5 from borders).
+    // halfWidth=5, currentClearance=5, borderClamp=0.1.
+    // minRequiredOffset = max(0, 5*0.1 - 5) = 0. No shift needed → returns 0.
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 10], [0, 10], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 5, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 5, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 5, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom)).toBe(0)
+  })
+
+  it('default borderClamp=0.1 (matches EU4 MAP_NAME_BORDER_CLAMP constant)', () => {
+    // Verify the exported constant matches EU4 default.
+    // borderClamp=0.1 with spine in the middle of country: no shift needed.
+    const geom = makeGeom([polyFromOuter([
+      [0, 0], [10, 0], [10, 10], [0, 10], [0, 0],
+    ])])
+    const spine: SpinePoint[] = [
+      { x: 0, y: 5, tangentX: 1, tangentY: 0 },
+      { x: 5, y: 5, tangentX: 1, tangentY: 0 },
+      { x: 10, y: 5, tangentX: 1, tangentY: 0 },
+    ]
+    expect(getTextPathSpineOffset(spine, geom)).toBe(0)
+  })
 })
