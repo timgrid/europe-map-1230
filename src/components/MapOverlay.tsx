@@ -14,9 +14,10 @@ import {
 import { pickFittingName } from '../utils/fittingName'
 import { useMapStore } from '../store'
 import {
-  classifyLabelMode,
   isSpineEligible,
   setAttrIfChanged,
+  getRenderMode,
+  type RenderMode,
 } from '../utils/overlayPipeline'
 import {
   wrapBalanced,
@@ -380,8 +381,19 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
         // textPath-eligible countries do NOT participate in point-label overlap
         // resolution (they sit horizontally along their spine and don't actually
         // conflict with vertical point labels of other countries).
-        const modeById = new Map<string, 'textpath' | 'point' | 'hidden'>()
+        //
+        // Используем getRenderMode (Clausewitz state machine, ADR-0013):
+        //   cameraDistance > ZOOM_MAX_POLITICAL → world_metric
+        //   screenArea    < SCREEN_AREA_MIN     → point
+        //   cameraDistance < ZOOM_CLOSE_CULLING → hidden
+        //   иначе: spineEligible → textpath, иначе → point
+        //
+        // world_metric пока не имеет рендер-пути → нормализуем в 'hidden'
+        // (см. PASS 3 ниже). data-mode атрибут сохраняет оригинальный режим
+        // для DevTools.
+        const modeById = new Map<string, RenderMode>()
         const screenSpineById = new Map<string, ReturnType<typeof buildScreenSpine>>()
+        const cameraDistance = camera.position.length()
         for (const [id, data] of dataRef.current) {
           const screenSpine = buildScreenSpine(data.spineWorld, camera, viewport)
           screenSpineById.set(id, screenSpine)
@@ -393,8 +405,22 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           // text-max-angle guard: отбраковываем textPath со слишком резкими
           // поворотами (для будущих curved spines; текущая прямая всегда проходит).
           const eligible = baseEligible && !hasSharpSpineTurn(screenSpine.readable)
-          const centerVisible = projectWorldToScreen(data.center, camera, viewport).visible
-          modeById.set(id, classifyLabelMode(centerVisible, eligible))
+          const proj = projectWorldToScreen(data.center, camera, viewport)
+          const centerVisible = proj.visible
+          // screenArea = (boundsWidth · boundsHeight) / (wup²) — пиксельная площадь bbox
+          // на экране. worldUnitsPerPixel > 0 проверен в projection.
+          const wup = proj.worldUnitsPerPixel || 1
+          const screenArea =
+            (data.boundsWidth * data.boundsHeight) / (wup * wup)
+          modeById.set(
+            id,
+            getRenderMode({
+              cameraDistance,
+              screenSpineLength: screenSpine.screenLen,
+              screenArea,
+              spineEligible: eligible && centerVisible,
+            }),
+          )
         }
 
         // PASS 2: build candidates ONLY for point-mode countries and resolve overlaps.
@@ -444,8 +470,13 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
             screenLen: screenSpine.screenLen,
             aspect: data.aspect,
           })
-          const isTextPath = mode === 'textpath'
-          const isPoint = mode === 'point'
+          // world_metric пока не имеет рендер-пути (нет world-scale label UI) →
+          // нормализуем в 'hidden' для рендера. data-mode атрибут сохраняет
+          // оригинальный режим для DevTools.
+          const renderMode: 'textpath' | 'point' | 'hidden' =
+            mode === 'world_metric' ? 'hidden' : mode
+          const isTextPath = renderMode === 'textpath'
+          const isPoint = renderMode === 'point'
           const show = isTextPath ? true : isPoint ? (visibility.get(id) ?? false) : false
           wasVisibleRef.current.set(id, show)
 
