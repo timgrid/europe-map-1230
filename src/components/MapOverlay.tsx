@@ -252,13 +252,17 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
     }
 
     // EU4 letter-spacing: step = Clamp(L·K_fill/(N-1), W·0.2, W·MAX_LETTER_SPACING)
-    // (N = number of characters in the longest line, W = fontSize)
+    // (N = number of characters in the longest line, W = charWidth ≈ fontSize·0.55)
+    // Формула даёт "center-to-center" расстояние (Step). Для SVG letter-spacing
+    // (дополнительный интервал) нужно вычесть ширину символа: spacing = Step − W.
     const longestLineLen = lines.reduce((max, ln) => Math.max(max, ln.length), 0)
-    const textPathLetterSpacing = getEU4LetterSpacing(
+    const charWidth = textPathFontSize * 0.55
+    const step = getEU4LetterSpacing(
       screenLen,
       Math.max(1, longestLineLen),
-      textPathFontSize,
+      charWidth,
     )
+    const textPathLetterSpacing = Math.max(0, step - charWidth)
 
     // Render each line (relative to the normal-shifted base spine)
     const offsets = getLineOffsets(lines.length, lineSpacing)
@@ -350,12 +354,14 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
     divEl.style.top = `${cand.y}px`
     divEl.style.fontSize = `${fontSize}px`
     // EU4 letter-spacing: step = Clamp(L·K_fill/(N-1), W·0.2, W·MAX_LETTER_SPACING)
-    // (N = total characters across all lines, W = fontSize)
-    const pointLetterSpacing = getEU4LetterSpacing(
+    // (N = total characters across all lines, W = charWidth ≈ fontSize·0.55)
+    const pointCharWidth = fontSize * 0.55
+    const pointStep = getEU4LetterSpacing(
       countryScreenWidth,
       Math.max(1, lines.join('').length),
-      fontSize,
+      pointCharWidth,
     )
+    const pointLetterSpacing = Math.max(0, pointStep - pointCharWidth)
     divEl.style.letterSpacing = `${pointLetterSpacing}px`
     setAttrIfChanged(divEl, 'data-fontsize', String(fontSize), { value: data.lastFontSize })
     data.lastFontSize = String(fontSize)
