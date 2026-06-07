@@ -412,15 +412,18 @@ export default function MapOverlay({ countries }: MapOverlayProps) {
           const wup = proj.worldUnitsPerPixel || 1
           const screenArea =
             (data.boundsWidth * data.boundsHeight) / (wup * wup)
-          modeById.set(
-            id,
-            getRenderMode({
-              cameraDistance,
-              screenSpineLength: screenSpine.screenLen,
-              screenArea,
-              spineEligible: eligible && centerVisible,
-            }),
-          )
+          // centerVisible — обязательный gate: если центр страны не видим
+          // (за камерой), координаты экранной проекции некорректны → hidden.
+          // См. ADR-0006: старый classifyLabelMode применял этот gate первым.
+          const mode_: RenderMode = centerVisible
+            ? getRenderMode({
+                cameraDistance,
+                screenSpineLength: screenSpine.screenLen,
+                screenArea,
+                spineEligible: eligible,
+              })
+            : 'hidden'
+          modeById.set(id, mode_)
         }
 
         // PASS 2: build candidates ONLY for point-mode countries and resolve overlaps.
